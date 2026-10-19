@@ -433,4 +433,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --title "IncorrectWeb Pomoc $VERSION" --notes "IncorrectWeb Pomoc $VERSION. Based on RustDesk (AGPL-3.0)." ${{ github.ref_type != 'tag' && '--draft' || '' }}
+          gh release create "$VERSION" dist/IncorrectWebPomoc-* dist/SHA256SUMS --repo "$GITHUB_REPOSITORY" --title "IncorrectWeb Pomoc $VERSION" --notes "IncorrectWeb Pomoc $VERSION. Based on RustDesk (AGPL-3.0)." ${{ github.ref_type != 'tag' && '--draft' || '' }}
