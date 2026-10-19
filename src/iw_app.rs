@@ -105,6 +105,7 @@ pub fn init() {
             keys::OPTION_HIDE_WEBSOCKET_SETTINGS,
             keys::OPTION_HIDE_SECURITY_SETTINGS,
             keys::OPTION_HIDE_HELP_CARDS,
+            keys::OPTION_HIDE_POWERED_BY_ME,
         ] {
             b.insert(k.to_owned(), "Y".to_owned());
         }

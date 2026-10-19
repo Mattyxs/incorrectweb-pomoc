@@ -400,6 +400,9 @@ jobs:
           sed -i -e 's/MAXIMUM_UNMOUNTING_ATTEMPTS=3/MAXIMUM_UNMOUNTING_ATTEMPTS=7/' "$CREATE_DMG"
           APP="$(ls -d ./flutter/build/macos/Build/Products/Release/*.app | head -n 1)"
           echo "App bundle: $APP"
+          # no Apple certificate: sign the whole bundle ad hoc, so that the app and its frameworks share one identity
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict "$APP"
           mkdir -p out
           create-dmg --icon "$(basename "$APP")" 200 190 --hide-extension "$(basename "$APP")" --window-size 800 400 --app-drop-link 600 185 out/IncorrectWebPomoc-${{ env.VERSION }}-${{ matrix.job.arch }}.dmg "$APP"
 
