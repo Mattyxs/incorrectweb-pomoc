@@ -16,6 +16,7 @@ import 'package:flutter_hbb/models/peer_model.dart';
 import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
+import 'package:flutter_hbb/desktop/pages/iw_widgets.dart'; // IW
 import 'package:flutter_hbb/utils/platform_channel.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
@@ -2262,6 +2263,14 @@ setEnvTerminalAdmin() {
 
 // uri link handler
 bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
+  // IW: a link of a consultant is confirmed by the user first; other schemes are not ours
+  final iwRaw = (cmdArgs != null && cmdArgs.isNotEmpty)
+      ? cmdArgs[0]
+      : (uri?.toString() ?? uriString ?? '');
+  if (iwRaw.toLowerCase().startsWith('iwpomoc://')) {
+    iwHandleLink(iwRaw);
+    return true;
+  }
   List<String>? args;
   if (cmdArgs != null && cmdArgs.isNotEmpty) {
     args = cmdArgs;

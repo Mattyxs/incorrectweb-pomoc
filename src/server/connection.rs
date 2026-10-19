@@ -389,6 +389,8 @@ pub struct Connection {
     tx_post_seq: mpsc::UnboundedSender<(String, Value)>,
     conn_audit_primary_auth: ConnAuditPrimaryAuth,
     conn_audit_two_factor: ConnAuditTwoFactor,
+    // IW: what is known about the controller (verification, consent method, session start)
+    iw: crate::iw_app::IwConn,
     // Tracks read job IDs delegated to CM process.
     // When a read job is delegated to CM (via FS::ReadFile), the job id is added here.
     // Used to filter stale responses (FileBlockFromCM, FileReadDone, etc.) for
@@ -591,6 +593,7 @@ impl Connection {
             terminal_generic_service: None,
             conn_audit_primary_auth: ConnAuditPrimaryAuth::None,
             conn_audit_two_factor: ConnAuditTwoFactor::None,
+            iw: Default::default(),
         };
         let addr = hbb_common::try_into_v4(addr);
         if !conn.on_open(addr).await {
@@ -1072,6 +1075,15 @@ impl Connection {
                         if instant.elapsed().as_secs() > minute * 60 {
                             conn.send_close_reason_no_retry("Connection failed due to inactivity").await;
                             conn.on_close("auto disconnect", true).await;
+                            break;
+                        }
+                    }
+                    // IW: unattended access that fell back to a click: reject when nobody clicks in time
+                    if let Some(deadline) = conn.iw.deadline {
+                        if !conn.authorized && std::time::Instant::now() >= deadline {
+                            conn.send_login_error("Connection not confirmed").await;
+                            conn.send_close_reason_no_retry("Connection not confirmed").await;
+                            conn.on_close("iw: no confirmation in time", true).await;
                             break;
                         }
                     }
@@ -1655,6 +1667,7 @@ impl Connection {
             return false;
         }
         self.authorized = true;
+        self.iw_on_authorized();
         let (conn_type, auth_conn_type) = if self.file_transfer.is_some() {
             (1, AuthConnType::FileTransfer)
         } else if self.port_forward_socket.is_some() {
@@ -2112,6 +2125,7 @@ impl Connection {
             block_input: self.block_input,
             privacy_mode: self.privacy_mode,
             from_switch: self.from_switch,
+            iw: self.iw.to_json(),
         });
     }
 
@@ -2337,6 +2351,160 @@ impl Connection {
             }
         }
         false
+    }
+
+    // IW: ---- consent policy (src/iw/consent.rs) ----
+
+    /// `verify` once per connection (the token is single-use; a password retry reuses the answer).
+    async fn iw_verify_once(&mut self, lr: &LoginRequest) {
+        if self.iw.verify.is_some() || lr.iw_intent.is_empty() {
+            return;
+        }
+        self.iw.intent = Some(lr.iw_intent.clone());
+        let controller = lr.my_id.split('@').next().unwrap_or_default().to_owned();
+        let outcome = crate::iw_app::verify(&lr.iw_intent, &controller).await;
+        self.iw.verify = Some(outcome);
+    }
+
+    /// Which password the controller proved (none, one-time, permanent, wrong).
+    fn iw_classify_password(&mut self) -> crate::iw::consent::Credential {
+        use crate::iw::consent::Credential;
+        if self.lr.password.is_empty() {
+            return Credential::None;
+        }
+        if password::temporary_enabled() {
+            let temporary = password::temporary_password();
+            if self.validate_password_plain(&temporary) {
+                self.set_conn_audit_primary_auth(ConnAuditPrimaryAuth::TemporaryPassword);
+                self.check_update_temporary_password(true);
+                self.iw.rotate_temporary_password = true;
+                return Credential::Temporary;
+            }
+        }
+        if crate::iw_app::unattended_enabled() {
+            let (storage, salt) = Config::get_local_permanent_password_storage_and_salt();
+            if !storage.is_empty()
+                && local_permanent_password_storage_is_usable_for_auth(&storage, &salt)
+                && self.validate_password_storage(&storage)
+            {
+                self.set_conn_audit_primary_auth(ConnAuditPrimaryAuth::PermanentPassword);
+                return Credential::Permanent;
+            }
+        }
+        Credential::Wrong
+    }
+
+    async fn iw_consent(&mut self, err_msg: String) -> bool {
+        use crate::iw::consent::{decide, Credential, Decision, VerifyOutcome};
+        // the request as stored by `handle_login_request_without_validation`
+        let lr = self.lr.clone();
+        self.iw_verify_once(&lr).await;
+        let verify = self.iw.verify.clone().unwrap_or(VerifyOutcome::NotVerified);
+        let unattended_enabled = crate::iw_app::unattended_enabled();
+        // A verified attended link needs no password; everything else is checked (and counted) like before.
+        let password_matters = match &verify {
+            VerifyOutcome::Verified(v) => v.unattended_mode && v.unattended_allowed && unattended_enabled,
+            VerifyOutcome::NotVerified => true,
+        };
+        let credential = if lr.password.is_empty() || !password_matters {
+            Credential::None
+        } else {
+            let (failure, res) = self.check_failure(0).await;
+            if !res {
+                return true;
+            }
+            let credential = self.iw_classify_password();
+            let ok = credential != Credential::Wrong;
+            self.update_failure_with_scope(failure, ok, 0, FailureScope::Default);
+            if !ok {
+                self.check_update_temporary_password(false);
+            }
+            credential
+        };
+        match decide(&verify, credential, unattended_enabled) {
+            Decision::AuthorizeUnattended => {
+                if !err_msg.is_empty() {
+                    self.send_login_error(err_msg).await;
+                    return true;
+                }
+                self.iw.method = "unattended";
+                self.iw.unattended = true;
+                #[cfg(target_os = "linux")]
+                self.linux_headless_handle.wait_desktop_cm_ready().await;
+                if !self.send_logon_response_and_keep_alive().await {
+                    return false;
+                }
+                self.try_start_cm(lr.my_id, lr.my_name, self.authorized);
+            }
+            Decision::AskPassword => {
+                self.send_login_error(crate::client::LOGIN_MSG_PASSWORD_EMPTY).await;
+            }
+            Decision::WrongPassword => {
+                self.send_login_error(crate::client::LOGIN_MSG_PASSWORD_WRONG).await;
+            }
+            Decision::Click { wait_limit, method, .. } => {
+                self.iw.method = method;
+                self.iw.deadline = wait_limit.map(|d| std::time::Instant::now() + d);
+                if !err_msg.is_empty() {
+                    self.send_login_error(err_msg).await;
+                    return true;
+                }
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                if should_use_terminal_os_login_scope(self.terminal, &lr.os_login.username) {
+                    if let Some(keep_alive) = self.prepare_terminal_login_for_authorization().await {
+                        return keep_alive;
+                    }
+                }
+                let new_enough = hbb_common::get_version_number(&lr.version)
+                    >= hbb_common::get_version_number("1.2.0");
+                self.try_start_cm(lr.my_id, lr.my_name, false);
+                if new_enough {
+                    self.send_login_error(crate::client::LOGIN_MSG_NO_PASSWORD_ACCESS).await;
+                }
+            }
+        }
+        true
+    }
+
+    /// The session is open: report it (the server decides whether it counts as verified).
+    fn iw_on_authorized(&mut self) {
+        use crate::iw::api::SessionEvent;
+        if self.iw.started.is_some() {
+            return;
+        }
+        if self.iw.method.is_empty() {
+            self.iw.method = "click";
+        }
+        self.iw.started = Some(std::time::Instant::now());
+        self.iw.conn_id = uuid::Uuid::new_v4().to_string();
+        crate::iw_app::report_session(SessionEvent::Start {
+            conn_id: self.iw.conn_id.clone(),
+            controller_id: self.iw_controller_id(),
+            method: self.iw.method,
+            intent: self.iw.intent.clone(),
+        });
+    }
+
+    fn iw_controller_id(&self) -> String {
+        self.lr.my_id.split('@').next().unwrap_or_default().to_owned()
+    }
+
+    fn iw_on_closed(&mut self, reason: &str) {
+        use crate::iw::api::SessionEvent;
+        if self.iw.rotate_temporary_password {
+            self.iw.rotate_temporary_password = false;
+            password::update_temporary_password();
+        }
+        let Some(started) = self.iw.started.take() else {
+            return;
+        };
+        crate::iw_app::report_session(SessionEvent::End {
+            conn_id: self.iw.conn_id.clone(),
+            controller_id: self.iw_controller_id(),
+            method: self.iw.method,
+            duration_sec: started.elapsed().as_secs(),
+            reason: reason.to_owned(),
+        });
     }
 
     fn is_recent_session(&mut self, tfa: bool) -> bool {
@@ -2649,108 +2817,9 @@ impl Connection {
                 return true;
             }
 
-            // https://github.com/rustdesk/rustdesk-server-pro/discussions/646
-            // `is_logon` is used to check login with `OPTION_ALLOW_LOGON_SCREEN_PASSWORD` == "Y".
-            // `is_logon_ui()` is a fallback for logon UI detection on Windows.
-            #[cfg(target_os = "windows")]
-            let is_logon = || {
-                crate::platform::is_prelogin() || crate::platform::is_locked() || {
-                    match crate::platform::is_logon_ui() {
-                        Ok(result) => result,
-                        Err(e) => {
-                            log::error!("Failed to detect logon UI: {:?}", e);
-                            false
-                        }
-                    }
-                }
-            };
-            #[cfg(any(target_os = "linux", target_os = "macos"))]
-            let is_logon = || crate::platform::is_prelogin() || crate::platform::is_locked();
-            #[cfg(any(target_os = "android", target_os = "ios"))]
-            let is_logon = || crate::platform::is_prelogin();
-
-            let allow_logon_screen_password =
-                crate::get_builtin_option(keys::OPTION_ALLOW_LOGON_SCREEN_PASSWORD) == "Y"
-                    && is_logon();
-
-            if (password::approve_mode() == ApproveMode::Click && !allow_logon_screen_password)
-                || password::approve_mode() == ApproveMode::Both && !password::has_valid_password()
-            {
-                #[cfg(not(any(target_os = "android", target_os = "ios")))]
-                if should_use_terminal_os_login_scope(self.terminal, &lr.os_login.username) {
-                    if let Some(keep_alive) = self.prepare_terminal_login_for_authorization().await
-                    {
-                        return keep_alive;
-                    }
-                }
-                self.try_start_cm(lr.my_id, lr.my_name, false);
-                if hbb_common::get_version_number(&lr.version)
-                    >= hbb_common::get_version_number("1.2.0")
-                {
-                    self.send_login_error(crate::client::LOGIN_MSG_NO_PASSWORD_ACCESS)
-                        .await;
-                }
-                return true;
-            } else if self.is_recent_session(false) {
-                if err_msg.is_empty() {
-                    #[cfg(target_os = "linux")]
-                    self.linux_headless_handle.wait_desktop_cm_ready().await;
-                    if !self.send_logon_response_and_keep_alive().await {
-                        return false;
-                    }
-                    self.try_start_cm(lr.my_id.clone(), lr.my_name.clone(), self.authorized);
-                } else {
-                    self.send_login_error(err_msg).await;
-                }
-            } else if lr.password.is_empty() {
-                if err_msg.is_empty() {
-                    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-                    if should_use_terminal_os_login_scope(self.terminal, &lr.os_login.username) {
-                        if let Some(keep_alive) =
-                            self.prepare_terminal_login_for_authorization().await
-                        {
-                            return keep_alive;
-                        }
-                    }
-                    self.try_start_cm(lr.my_id, lr.my_name, false);
-                } else {
-                    self.send_login_error(
-                        crate::client::LOGIN_MSG_DESKTOP_SESSION_NOT_READY_PASSWORD_EMPTY,
-                    )
-                    .await;
-                }
-            } else {
-                let (failure, res) = self.check_failure(0).await;
-                if !res {
-                    return true;
-                }
-                if !self.validate_password(allow_logon_screen_password) {
-                    self.update_failure_with_scope(failure, false, 0, FailureScope::Default);
-                    self.check_update_temporary_password(false);
-                    if err_msg.is_empty() {
-                        self.send_login_error(crate::client::LOGIN_MSG_PASSWORD_WRONG)
-                            .await;
-                        self.try_start_cm(lr.my_id, lr.my_name, false);
-                    } else {
-                        self.send_login_error(
-                            crate::client::LOGIN_MSG_DESKTOP_SESSION_NOT_READY_PASSWORD_WRONG,
-                        )
-                        .await;
-                    }
-                } else {
-                    self.update_failure_with_scope(failure, true, 0, FailureScope::Default);
-                    if err_msg.is_empty() {
-                        #[cfg(target_os = "linux")]
-                        self.linux_headless_handle.wait_desktop_cm_ready().await;
-                        if !self.send_logon_response_and_keep_alive().await {
-                            return false;
-                        }
-                        self.try_start_cm(lr.my_id, lr.my_name, self.authorized);
-                    } else {
-                        self.send_login_error(err_msg).await;
-                    }
-                }
-            }
+            // IW: consent policy replaces approve-mode, recent-session and password branches.
+            // Every connection needs a click, unless the server allowed unattended access for it.
+            return self.iw_consent(err_msg).await;
         } else if let Some(message::Union::Auth2fa(tfa)) = msg.union {
             let (failure, res) = self.check_failure(1).await;
             if !res {
@@ -4785,6 +4854,7 @@ impl Connection {
             return;
         }
         self.closed = true;
+        self.iw_on_closed(reason);
         // If voice A,B -> C, and A,B has voice call
         // B disconnects, C will reset the voice call input.
         //

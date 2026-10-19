@@ -33,6 +33,8 @@ pub fn core_main() -> Option<Vec<String>> {
         return None;
     }
     crate::load_custom_client();
+    // IW: safe defaults, URL scheme registration
+    crate::iw_app::init();
     #[cfg(windows)]
     if !crate::platform::windows::bootstrap() {
         // return None to terminate the process

@@ -59,6 +59,10 @@ mod whiteboard;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod updater;
 
+// IW: logic and glue of the IncorrectWeb Pomoc fork
+pub mod iw;
+#[cfg(not(target_os = "ios"))]
+pub mod iw_app;
 mod ui_cm_interface;
 mod ui_interface;
 mod ui_session_interface;

@@ -147,6 +147,10 @@ pub struct Client {
     pub from_switch: bool,
     pub in_voice_call: bool,
     pub incoming_voice_call: bool,
+    // IW: who is connecting (JSON from iw_app::IwConn::to_json) and when the session began
+    pub iw: String,
+    #[serde(skip)]
+    iw_started: Option<std::time::Instant>,
     #[serde(skip)]
     #[cfg(not(any(target_os = "ios")))]
     tx: UnboundedSender<Data>,
@@ -233,8 +237,14 @@ impl<T: InvokeUiCM> ConnectionManager<T> {
         block_input: bool,
         privacy_mode: bool,
         from_switch: bool,
+        iw: String,
         #[cfg(not(any(target_os = "ios")))] tx: mpsc::UnboundedSender<Data>,
     ) {
+        // IW: a session that starts authorized (unattended access) is announced right away
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        if authorized {
+            crate::iw_app::cm_client_authorized(&iw);
+        }
         let client = Client {
             id,
             authorized,
@@ -255,6 +265,8 @@ impl<T: InvokeUiCM> ConnectionManager<T> {
             block_input,
             privacy_mode,
             from_switch,
+            iw_started: authorized.then(std::time::Instant::now),
+            iw,
             #[cfg(not(any(target_os = "ios")))]
             tx,
             in_voice_call: false,
@@ -280,6 +292,13 @@ impl<T: InvokeUiCM> ConnectionManager<T> {
     }
 
     fn remove_connection(&self, id: i32, close: bool) {
+        // IW: one line in iw-sessions.log per finished session
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        if let Some(c) = CLIENTS.write().unwrap().get_mut(&id) {
+            if let Some(started) = c.iw_started.take() {
+                crate::iw_app::log_session(&c.iw, &c.peer_id, started.elapsed().as_secs());
+            }
+        }
         if close {
             CLIENTS.write().unwrap().remove(&id);
         } else {
@@ -365,6 +384,7 @@ pub fn get_click_time() -> i64 {
 pub fn authorize(id: i32) {
     if let Some(client) = CLIENTS.write().unwrap().get_mut(&id) {
         client.authorized = true;
+        client.iw_started = Some(std::time::Instant::now());
         allow_err!(client.tx.send(Data::Authorize));
     };
 }
@@ -543,9 +563,9 @@ impl<T: InvokeUiCM> IpcTaskRunner<T> {
                         }
                         Ok(Some(data)) => {
                             match data {
-                                Data::Login{id, is_file_transfer, is_view_camera, is_terminal, port_forward, peer_id, name, avatar, authorized, keyboard, clipboard, audio, file, file_transfer_enabled: _file_transfer_enabled, restart, recording, block_input, privacy_mode, from_switch} => {
+                                Data::Login{id, is_file_transfer, is_view_camera, is_terminal, port_forward, peer_id, name, avatar, authorized, keyboard, clipboard, audio, file, file_transfer_enabled: _file_transfer_enabled, restart, recording, block_input, privacy_mode, from_switch, iw} => {
                                     log::debug!("conn_id: {}", id);
-                                    self.cm.add_connection(id, is_file_transfer, is_view_camera, is_terminal, port_forward, peer_id, name, avatar, authorized, keyboard, clipboard, audio, file, restart, recording, block_input, privacy_mode, from_switch, self.tx.clone());
+                                    self.cm.add_connection(id, is_file_transfer, is_view_camera, is_terminal, port_forward, peer_id, name, avatar, authorized, keyboard, clipboard, audio, file, restart, recording, block_input, privacy_mode, from_switch, iw, self.tx.clone());
                                     self.conn_id = id;
                                     #[cfg(target_os = "windows")]
                                     {
@@ -897,6 +917,7 @@ pub async fn start_listen<T: InvokeUiCM>(
                 block_input,
                 privacy_mode,
                 from_switch,
+                iw,
                 ..
             }) => {
                 current_id = id;
@@ -919,6 +940,7 @@ pub async fn start_listen<T: InvokeUiCM>(
                     block_input,
                     privacy_mode,
                     from_switch,
+                    iw,
                     tx.clone(),
                 );
             }

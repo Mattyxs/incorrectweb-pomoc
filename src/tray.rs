@@ -70,7 +70,7 @@ fn make_tray() -> hbb_common::ResultType<()> {
     } else {
         tray_menu.append_items(&[&open_i]).ok();
     }
-    let tooltip = |count: usize| {
+    let tooltip_base = |count: usize| {
         if count == 0 {
             format!(
                 "{} {}",
@@ -84,6 +84,15 @@ fn make_tray() -> hbb_common::ResultType<()> {
                 translate("Ready".to_owned()),
                 translate("{".to_string() + &format!("{count}") + "} sessions"),
             )
+        }
+    };
+    // IW: the tooltip says when unattended access is switched on
+    let tooltip = move |count: usize| {
+        let base = tooltip_base(count);
+        if hbb_common::config::Config::get_option(crate::iw_app::OPT_UNATTENDED) == "Y" {
+            format!("{base}\n{} — dostęp bez akceptacji WŁĄCZONY", crate::iw::DISPLAY_NAME)
+        } else {
+            base
         }
     };
     let mut _tray_icon: Arc<Mutex<Option<TrayIcon>>> = Default::default();

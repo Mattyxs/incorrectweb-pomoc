@@ -832,6 +832,16 @@ class Client {
   bool fromSwitch = false;
   bool inVoiceCall = false;
   bool incomingVoiceCall = false;
+  // IW: who is connecting (JSON from the Rust side: verified, name, company, ticket, unattended, org)
+  Map<String, dynamic> iw = {};
+
+  bool get iwVerified => iw['verified'] == true;
+  bool get iwUnattended => iw['unattended'] == true;
+  String get iwName => (iw['name'] ?? '').toString();
+  String get iwCompany => (iw['company'] ?? '').toString();
+  String get iwOrg => (iw['org'] ?? '').toString();
+  String get iwTicketTitle => (iw['ticketTitle'] ?? '').toString();
+  int? get iwTicket => iw['ticket'] is int ? iw['ticket'] as int : null;
 
   RxInt unreadChatMessageCount = 0.obs;
 
@@ -861,6 +871,14 @@ class Client {
     fromSwitch = json['from_switch'];
     inVoiceCall = json['in_voice_call'];
     incomingVoiceCall = json['incoming_voice_call'];
+    final iwRaw = json['iw'];
+    if (iwRaw is String && iwRaw.isNotEmpty) {
+      try {
+        iw = Map<String, dynamic>.from(jsonDecode(iwRaw));
+      } catch (_) {
+        iw = {};
+      }
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -886,6 +904,7 @@ class Client {
     data['from_switch'] = fromSwitch;
     data['in_voice_call'] = inVoiceCall;
     data['incoming_voice_call'] = incomingVoiceCall;
+    data['iw'] = jsonEncode(iw);
     return data;
   }
 

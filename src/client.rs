@@ -295,10 +295,12 @@ impl Client {
             crate::get_rendezvous_server(1_000).await
         } else {
             if other_server == PUBLIC_SERVER {
+                // IW: there is no built-in server (the list is empty)
                 (
-                    check_port(RENDEZVOUS_SERVERS[0], RENDEZVOUS_PORT),
-                    RENDEZVOUS_SERVERS[1..]
+                    check_port(RENDEZVOUS_SERVERS.first().copied().unwrap_or(""), RENDEZVOUS_PORT),
+                    RENDEZVOUS_SERVERS
                         .iter()
+                        .skip(1)
                         .map(|x| x.to_string())
                         .collect(),
                     true,
@@ -2717,7 +2719,13 @@ impl LoginConfigHandler {
         } else {
             Bytes::new()
         };
+        // IW: the one-time intent of an iwpomoc link goes into this login only; it is not stored anywhere
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        let iw_intent = crate::iw_app::take_intent(&pure_id);
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        let iw_intent = String::new();
         let mut lr = LoginRequest {
+            iw_intent,
             username: pure_id,
             password: password.into(),
             my_id,

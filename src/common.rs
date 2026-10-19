@@ -1011,7 +1011,8 @@ pub fn is_rustdesk() -> bool {
 
 #[inline]
 pub fn get_uri_prefix() -> String {
-    format!("{}://", get_app_name().to_lowercase())
+    // IW: our own link scheme (iwpomoc://) instead of the app name
+    format!("{}://", crate::iw::link::SCHEME)
 }
 
 #[cfg(target_os = "macos")]

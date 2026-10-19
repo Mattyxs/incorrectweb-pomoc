@@ -1098,6 +1098,37 @@ pub fn main_uri_prefix_sync() -> SyncReturn<String> {
     SyncReturn(crate::get_uri_prefix())
 }
 
+// IW: IncorrectWeb Pomoc functions for the Flutter UI (organization, unattended access, links, history)
+pub fn main_iw_status() -> SyncReturn<String> {
+    SyncReturn(crate::iw_app::status_json())
+}
+
+pub fn main_iw_org_code_from_exe() -> SyncReturn<String> {
+    SyncReturn(crate::iw_app::org_code_from_exe())
+}
+
+// Runs on a worker thread (HTTP request); returns {"ok":..,"message"/"name":..}.
+pub fn main_iw_apply_org_code(code: String) -> String {
+    crate::iw_app::apply_org_code(&code)
+}
+
+pub fn main_iw_clear_org() {
+    crate::iw_app::clear_org()
+}
+
+// Returns an empty string on success, otherwise the error text.
+pub fn main_iw_set_unattended(enable: bool, password: String) -> String {
+    crate::iw_app::set_unattended(enable, &password)
+}
+
+pub fn main_iw_handle_link(url: String, store: bool) -> SyncReturn<String> {
+    SyncReturn(crate::iw_app::handle_link(&url, store))
+}
+
+pub fn main_iw_sessions_log() -> SyncReturn<String> {
+    SyncReturn(crate::iw_app::sessions_log_tail(200))
+}
+
 pub fn main_get_license() -> String {
     get_license()
 }

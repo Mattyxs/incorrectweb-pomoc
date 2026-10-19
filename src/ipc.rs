@@ -315,6 +315,9 @@ pub enum Data {
         block_input: bool,
         privacy_mode: bool,
         from_switch: bool,
+        // IW: who is connecting (JSON, see iw_app::IwConn::to_json)
+        #[serde(default)]
+        iw: String,
     },
     ChatMessage {
         text: String,

@@ -21,6 +21,7 @@ import '../../common/widgets/chat_page.dart';
 import '../../models/file_model.dart';
 import '../../models/platform_model.dart';
 import '../../models/server_model.dart';
+import 'iw_widgets.dart'; // IW
 
 class DesktopServerPage extends StatefulWidget {
   const DesktopServerPage({Key? key}) : super(key: key);
@@ -353,6 +354,7 @@ Widget buildConnectionCard(Client client) {
       key: ValueKey(client.id),
       children: [
         _CmHeader(client: client),
+        IwConsentBanner(client: client), // IW: who is connecting
         client.type_() == ClientType.file ||
                 client.type_() == ClientType.portForward ||
                 client.type_() == ClientType.terminal ||
@@ -447,8 +449,8 @@ class _CmHeaderState extends State<_CmHeader>
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
           colors: [
-            Color(0xff00bfe1),
-            Color(0xff0071ff),
+            Color(0xff6a3aa8), // IW: brand colors
+            Color(0xff431c77),
           ],
         ),
       ),
@@ -1063,8 +1065,9 @@ class _CmControlPanel extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        // IW: "Accept and Elevate" is only for a verified person
         Offstage(
-          offstage: !showElevation || !showAccept,
+          offstage: !showElevation || !showAccept || !client.iwVerified,
           child: buildButton(context, color: Colors.green[700], onClick: () {
             handleAccept(context);
             handleElevate(context);
@@ -1086,15 +1089,20 @@ class _CmControlPanel extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    buildButton(
-                      context,
-                      color: MyTheme.accent,
-                      onClick: () {
-                        handleAccept(context);
-                        windowManager.minimize();
-                      },
-                      text: 'Accept',
-                      textColor: Colors.white,
+                    // IW: an unknown person can be allowed only after 3 seconds
+                    IwCountdown(
+                      seconds: client.iwVerified ? 0 : 3,
+                      builder: (context, left) => buildButton(
+                        context,
+                        color: left > 0 ? Colors.grey : MyTheme.accent,
+                        onClick: () {
+                          if (left > 0) return;
+                          handleAccept(context);
+                          windowManager.minimize();
+                        },
+                        text: left > 0 ? 'Pozwól ($left)' : 'Pozwól',
+                        textColor: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -1105,7 +1113,7 @@ class _CmControlPanel extends StatelessWidget {
                 color: Colors.transparent,
                 border: Border.all(color: Colors.grey),
                 onClick: handleDisconnect,
-                text: 'Cancel',
+                text: 'Odrzuć',
                 textColor: null,
               ),
             ),
