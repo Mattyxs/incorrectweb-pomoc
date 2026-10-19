@@ -10,8 +10,9 @@ Every change is marked `// IW:` (Rust, Dart). Pure logic is in `src/iw/` and is 
 - `libs/hbb_common/protos/message.proto`: `LoginRequest.iw_intent = 1001`.
 - `src/iw/*`, `iw-tests/*`: new (signing, organization code, link, consent policy, device API client, session log).
 - `src/iw_app.rs`: new (glue: defaults, org setup, background worker, notifications).
-- `src/lib.rs`, `src/core_main.rs`, `src/server.rs`: module registration, defaults, worker start.
-- `src/common.rs`: link scheme `iwpomoc://`.
+- `src/lib.rs`, `src/server.rs`: module registration, defaults, worker start.
+- `src/core_main.rs`: module registration, defaults; a link starts the program with the link only, links of other schemes are ignored.
+- `src/common.rs`: link scheme `iwpomoc://`; no update check against api.rustdesk.com; no public STUN servers.
 - `src/client.rs`: intent in the login request; no built-in server.
 - `src/ipc.rs`, `src/ui_cm_interface.rs`: `iw` data for the consent window, session log, notification.
 - `src/server/connection.rs`: consent policy (click always, verify, unattended only when allowed), session reports.
@@ -22,7 +23,7 @@ Every change is marked `// IW:` (Rust, Dart). Pure logic is in `src/iw/` and is 
 - `flutter/lib/common.dart`, `desktop/pages/{server_page,desktop_home_page,desktop_setting_page}.dart`, `models/server_model.dart`: hooks into the widgets.
 - `flutter/macos/*`, `flutter/windows/runner/Runner.rc`, `build.py`: names, bundle id, URL scheme.
 - `res/*`, `flutter/assets/icon.svg`, `flutter/windows/runner/resources/app_icon.ico`: temporary logo.
-- `.github/workflows/incorrectweb-build.yml`: build (RustDesk workflows removed).
+- `.github/workflows/incorrectweb-build.yml`: build (RustDesk workflows removed), read-only token for build jobs.
 
 ## Notes
 - Device key: the Ed25519 pair RustDesk keeps for the computer (shared by user and service processes).
