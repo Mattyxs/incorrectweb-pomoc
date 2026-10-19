@@ -1107,7 +1107,12 @@ pub fn main_iw_org_code_from_exe() -> SyncReturn<String> {
     SyncReturn(crate::iw_app::org_code_from_exe())
 }
 
-// Runs on a worker thread (HTTP request); returns {"ok":..,"message"/"name":..}.
+// Runs on a worker thread (HTTP request); returns {"ok":..,"message"/"name"/"prompt":..}. Applies nothing.
+pub fn main_iw_lookup_org_code(code: String) -> String {
+    crate::iw_app::lookup_org_code(&code)
+}
+
+// After the user confirmed the organization shown by the lookup; returns {"ok":..,"message"/"name":..}.
 pub fn main_iw_apply_org_code(code: String) -> String {
     crate::iw_app::apply_org_code(&code)
 }

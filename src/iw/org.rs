@@ -83,16 +83,59 @@ fn valid_key(key: &str) -> bool {
     STANDARD.decode(key).map_or(false, |k| k.len() == 32)
 }
 
-/// https only; plain http is for a server on this very computer (development).
 fn valid_api(api: &str) -> bool {
+    valid_api_with(api, cfg!(test))
+}
+
+/// https only; plain http to this very computer only when `allow_local` (test builds).
+fn valid_api_with(api: &str, allow_local: bool) -> bool {
+
     let Ok(url) = url::Url::parse(api) else {
         return false;
     };
     match url.scheme() {
         "https" => url.host_str().is_some(),
-        "http" => matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]")),
+        "http" => allow_local && matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]")),
         _ => false,
     }
+}
+
+/// Name for the screen: control characters become spaces, invisible direction marks are dropped.
+fn display_name(n: &str) -> String {
+    n.chars()
+        .filter(|c| !matches!(c, '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect::<String>()
+        .trim()
+        .chars()
+        .take(120)
+        .collect()
+}
+
+/// What the user was asked about: the configuration is applied only after the answer "yes".
+#[derive(Default)]
+pub struct PendingOrg {
+    slot: Option<(String, OrgConfig)>,
+}
+
+impl PendingOrg {
+    pub fn put(&mut self, code: &str, cfg: OrgConfig) {
+        self.slot = Some((code.to_owned(), cfg));
+    }
+
+    /// The configuration looked up for exactly this code; it can be taken once.
+    pub fn take(&mut self, code: &str) -> Option<OrgConfig> {
+        if self.slot.as_ref().map_or(false, |(c, _)| c == code) {
+            self.slot.take().map(|(_, cfg)| cfg)
+        } else {
+            None
+        }
+    }
+}
+
+/// Question shown before an organization is applied.
+pub fn confirm_prompt(name: &str) -> String {
+    format!("Połączyć ten komputer z organizacją {name}?")
 }
 
 /// Reads the answer of `GET <license>/connect/<CODE>` (docs/connect/remote-api.md section 1).
@@ -112,7 +155,7 @@ pub fn parse_license_response(json: &str) -> Result<OrgConfig, OrgError> {
     let name = v
         .get("company")
         .and_then(|c| text(c, "name"))
-        .map(|n| n.trim().chars().take(120).collect::<String>())
+        .map(|n| display_name(&n))
         .filter(|n| !n.is_empty())
         .ok_or(OrgError::Invalid)?;
     Ok(OrgConfig { name, host, key, api: api.trim_end_matches('/').to_owned() })
@@ -219,6 +262,47 @@ mod tests {
     fn parse_license_response_allows_plain_http_only_for_loopback() {
         let r = format!(r#"{{"host":"connect.incorrectus.com","key":"{KEY}","api":"http://127.0.0.1:3350"}}"#);
         assert!(parse_license_response(&response(&r)).is_ok());
+    }
+
+    #[test]
+    fn production_rejects_plain_http_even_for_loopback() {
+        for api in ["http://localhost", "http://localhost:3350", "http://127.0.0.1:3350", "http://[::1]:3350"] {
+            assert!(valid_api_with(api, true), "{api} allowed in tests");
+            assert!(!valid_api_with(api, false), "{api} must be refused in production");
+        }
+        assert!(valid_api_with("https://connect.incorrectus.com", false));
+        assert!(!valid_api_with("http://connect.incorrectus.com", true));
+    }
+
+    fn cfg(name: &str) -> OrgConfig {
+        OrgConfig { name: name.into(), host: "h.example".into(), key: KEY.into(), api: "https://h.example".into() }
+    }
+
+    #[test]
+    fn pending_org_is_applied_only_for_the_code_that_was_shown_and_once() {
+        let mut p = PendingOrg::default();
+        assert_eq!(p.take("ABCD-EFGH"), None);
+        p.put("ABCD-EFGH", cfg("Firma A"));
+        assert_eq!(p.take("WXYZ-2345"), None);
+        // a wrong code takes nothing and does not consume the shown organization; a new lookup replaces it
+        p.put("ABCD-EFGH", cfg("Firma A"));
+        p.put("WXYZ-2345", cfg("Firma B"));
+        assert_eq!(p.take("ABCD-EFGH"), None);
+        assert_eq!(p.take("WXYZ-2345").map(|c| c.name), Some("Firma B".to_owned()));
+        assert_eq!(p.take("WXYZ-2345"), None);
+    }
+
+    #[test]
+    fn confirm_prompt_names_the_organization() {
+        assert_eq!(confirm_prompt("Incorrectus"), "Połączyć ten komputer z organizacją Incorrectus?");
+    }
+
+    #[test]
+    fn organization_name_is_cleaned_of_control_characters() {
+        let r = format!(r#"{{"host":"h.example","key":"{KEY}","api":"https://h.example"}}"#);
+        let json = response(&r).replace("Incorrectus", r"Fir\nma\u0000 \u202eX");
+        let cfg = parse_license_response(&json).unwrap();
+        assert_eq!(cfg.name, "Fir ma  X");
     }
 
     #[test]

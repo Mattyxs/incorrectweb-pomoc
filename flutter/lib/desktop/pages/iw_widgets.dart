@@ -138,11 +138,12 @@ class _IwOrgPageState extends State<IwOrgPage> {
   @override
   void initState() {
     super.initState();
-    // The code in the file name (IncorrectWebPomoc-ABCD-EFGH.exe) is applied without asking.
+    // The code in the file name (IncorrectWebPomoc-ABCD-EFGH.exe) is only looked up; the organization
+    // is applied after the user confirms its name.
     final fromExe = bind.mainIwOrgCodeFromExe();
     if (fromExe.isNotEmpty) {
       _controller.text = fromExe;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _apply());
+      WidgetsBinding.instance.addPostFrameCallback((_) => _lookupAndConfirm());
     }
   }
 
@@ -152,7 +153,16 @@ class _IwOrgPageState extends State<IwOrgPage> {
     super.dispose();
   }
 
-  Future<void> _apply() async {
+  Map<String, dynamic> _decode(String raw) {
+    try {
+      return Map<String, dynamic>.from(jsonDecode(raw));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Looks the code up, asks "Połączyć ten komputer z organizacją <nazwa>?", applies only after "Tak".
+  Future<void> _lookupAndConfirm() async {
     if (_busy) return;
     setState(() {
       _busy = true;
@@ -160,12 +170,44 @@ class _IwOrgPageState extends State<IwOrgPage> {
     });
     String raw = '';
     try {
-      raw = await bind.mainIwApplyOrgCode(code: _controller.text);
+      raw = await bind.mainIwLookupOrgCode(code: _controller.text);
     } catch (_) {}
-    Map<String, dynamic> res = {};
+    var res = _decode(raw);
+    if (!mounted) return;
+    if (res['ok'] != true) {
+      setState(() {
+        _busy = false;
+        _message = (res['message'] ?? 'Nie udało się połączyć z serwerem.').toString();
+      });
+      return;
+    }
+    final prompt = (res['prompt'] ?? '').toString();
+    final yes = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => AlertDialog(
+              title: const Text('Potwierdź organizację'),
+              content: Text(prompt),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(c, false),
+                    child: const Text('Nie')),
+                TextButton(
+                    onPressed: () => Navigator.pop(c, true),
+                    child: const Text('Tak')),
+              ],
+            ));
+    if (!mounted) return;
+    if (yes != true) {
+      setState(() => _busy = false);
+      return;
+    }
     try {
-      res = Map<String, dynamic>.from(jsonDecode(raw));
-    } catch (_) {}
+      raw = await bind.mainIwApplyOrgCode(code: _controller.text);
+    } catch (_) {
+      raw = '';
+    }
+    res = _decode(raw);
     if (!mounted) return;
     if (res['ok'] == true) {
       widget.onConfigured();
@@ -173,7 +215,7 @@ class _IwOrgPageState extends State<IwOrgPage> {
     }
     setState(() {
       _busy = false;
-      _message = (res['message'] ?? 'Nie udało się połączyć z serwerem.').toString();
+      _message = (res['message'] ?? 'Nie udało się zapisać organizacji.').toString();
     });
   }
 
@@ -202,7 +244,7 @@ class _IwOrgPageState extends State<IwOrgPage> {
                   textCapitalization: TextCapitalization.characters,
                   decoration: const InputDecoration(
                       border: OutlineInputBorder(), hintText: 'ABCD-EFGH'),
-                  onSubmitted: (_) => _apply(),
+                  onSubmitted: (_) => _lookupAndConfirm(),
                 ),
                 if (_message.isNotEmpty) ...[
                   const SizedBox(height: 10),
@@ -216,7 +258,7 @@ class _IwOrgPageState extends State<IwOrgPage> {
                         backgroundColor: kIwViolet,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14)),
-                    onPressed: _busy ? null : _apply,
+                    onPressed: _busy ? null : _lookupAndConfirm,
                     child: Text(_busy ? 'Łączenie…' : 'Dalej'),
                   ),
                 ),

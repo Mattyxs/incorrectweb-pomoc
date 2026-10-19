@@ -34,6 +34,8 @@ const HELLO_EVERY: Duration = Duration::from_secs(24 * 3600);
 lazy_static::lazy_static! {
     static ref INTENTS: Mutex<IntentStore> = Mutex::new(IntentStore::default());
     static ref QUEUE: Mutex<SessionQueue> = Mutex::new(load_queue());
+    /// The organization the user is asked about; applied only by `apply_org_code` after "yes".
+    static ref PENDING_ORG: Mutex<org::PendingOrg> = Mutex::new(org::PendingOrg::default());
 }
 
 /// What one connection knows about the controller; lives in `Connection`.
@@ -86,7 +88,11 @@ fn now_secs() -> i64 {
 pub fn init() {
     {
         let mut d = config::DEFAULT_SETTINGS.write().unwrap();
-        for (k, v) in [("verification-method", "use-temporary-password"), ("temporary-password-length", "8")] {
+        for (k, v) in [
+            ("verification-method", "use-temporary-password"),
+            ("temporary-password-length", "8"),
+            ("enable-lan-discovery", iw::policy::DEFAULT_LAN_DISCOVERY),
+        ] {
             d.entry(k.to_owned()).or_insert_with(|| v.to_owned());
         }
     }
@@ -128,6 +134,7 @@ fn is_gui_launch() -> bool {
 }
 
 /// HKCU registration of `iwpomoc://` (no administrator rights, works for the portable program).
+/// A copy started from Downloads or a temporary folder does not take over an existing registration.
 #[cfg(windows)]
 fn register_url_scheme() {
     use winreg::{enums::*, RegKey};
@@ -136,11 +143,20 @@ fn register_url_scheme() {
     };
     let hcu = RegKey::predef(HKEY_CURRENT_USER);
     let base = format!("Software\\Classes\\{}", link::SCHEME);
+    let command_path = format!("{base}\\shell\\open\\command");
+    let existing: Option<String> = hcu
+        .open_subkey(&command_path)
+        .ok()
+        .and_then(|k| k.get_value::<String, _>("").ok());
+    let (_, install_dir, _, _) = crate::platform::windows::get_install_info();
+    if !iw::scheme::should_register(&exe.to_string_lossy(), &install_dir, existing.as_deref()) {
+        return;
+    }
     if let Ok((key, _)) = hcu.create_subkey(&base) {
         key.set_value("", &format!("URL:{}", iw::DISPLAY_NAME)).ok();
         key.set_value("URL Protocol", &"").ok();
     }
-    if let Ok((key, _)) = hcu.create_subkey(format!("{base}\\shell\\open\\command")) {
+    if let Ok((key, _)) = hcu.create_subkey(&command_path) {
         key.set_value("", &format!("\"{}\" \"%1\"", exe.display())).ok();
     }
 }
@@ -164,9 +180,10 @@ fn license_url() -> String {
     std::env::var("IW_LICENSE_URL").unwrap_or_else(|_| DEFAULT_LICENSE_URL.to_owned())
 }
 
-/// `{"ok":true,"name":..}` or `{"ok":false,"message":..}` (Polish text for the screen).
-pub fn apply_org_code(input: &str) -> String {
-    let result = || -> Result<(String, String), String> {
+/// First step: asks the license server who owns the code. Nothing is applied; the answer is kept for
+/// `apply_org_code`. `{"ok":true,"name":..,"prompt":..}` or `{"ok":false,"message":..}` (Polish text).
+pub fn lookup_org_code(input: &str) -> String {
+    let result = || -> Result<(String, org::OrgConfig), String> {
         let code = org::normalize_code(input).ok_or("To nie wygląda na kod organizacji. Kod ma postać ABCD-EFGH.")?;
         let url = format!("{}/connect/{}", license_url().trim_end_matches('/'), code);
         let client = reqwest::blocking::Client::builder()
@@ -184,22 +201,35 @@ pub fn apply_org_code(input: &str) -> String {
         }
         let text = res.text().map_err(|_| "Nieczytelna odpowiedź serwera.".to_owned())?;
         match org::parse_license_response(&text) {
-            Ok(cfg) => {
-                for (k, v) in cfg.options() {
-                    crate::ui_interface::set_option(k.to_owned(), v);
-                }
-                crate::ui_interface::set_option(OPT_ORG_CODE.to_owned(), code);
-                crate::ui_interface::set_option(OPT_KEY_MISMATCH.to_owned(), String::new());
-                Ok((cfg.name, String::new()))
-            }
+            Ok(cfg) => Ok((code, cfg)),
             Err(OrgError::NoRemote) => Err("Ta organizacja nie ma włączonej zdalnej pomocy.".to_owned()),
             Err(OrgError::Invalid) => Err("Nieprawidłowa odpowiedź serwera.".to_owned()),
         }
     };
     match result() {
-        Ok((name, _)) => json!({ "ok": true, "name": name }).to_string(),
+        Ok((code, cfg)) => {
+            let out = json!({ "ok": true, "name": cfg.name, "prompt": org::confirm_prompt(&cfg.name) });
+            PENDING_ORG.lock().unwrap().put(&code, cfg);
+            out.to_string()
+        }
         Err(message) => json!({ "ok": false, "message": message }).to_string(),
     }
+}
+
+/// Second step, after the user answered "yes": applies exactly the organization `lookup_org_code` showed.
+pub fn apply_org_code(input: &str) -> String {
+    let Some(code) = org::normalize_code(input) else {
+        return json!({ "ok": false, "message": "To nie wygląda na kod organizacji." }).to_string();
+    };
+    let Some(cfg) = PENDING_ORG.lock().unwrap().take(&code) else {
+        return json!({ "ok": false, "message": "Najpierw sprawdź kod organizacji." }).to_string();
+    };
+    for (k, v) in cfg.options() {
+        crate::ui_interface::set_option(k.to_owned(), v);
+    }
+    crate::ui_interface::set_option(OPT_ORG_CODE.to_owned(), code);
+    crate::ui_interface::set_option(OPT_KEY_MISMATCH.to_owned(), String::new());
+    json!({ "ok": true, "name": cfg.name }).to_string()
 }
 
 /// For the UI process: option values come through the cached copy of the server config.
@@ -530,33 +560,21 @@ pub fn notify_unattended(person: &str, company: &str) {
     let text = format!("Konsultant {person} ({company}) połączył się z tym komputerem.");
     #[cfg(target_os = "macos")]
     {
-        let script = format!(
-            "display notification {} with title {}",
-            serde_json::to_string(&text).unwrap_or_default(),
-            serde_json::to_string(iw::DISPLAY_NAME).unwrap_or_default()
-        );
-        std::process::Command::new("osascript").args(["-e", &script]).spawn().ok();
+        std::process::Command::new("osascript")
+            .args(iw::notify::osascript_args(iw::DISPLAY_NAME, &text))
+            .spawn()
+            .ok();
     }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        let esc = |s: &str| s.replace('\'', "''");
-        let script = format!(
-            "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null; \
-             $x = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); \
-             $t = $x.GetElementsByTagName('text'); \
-             $t.Item(0).AppendChild($x.CreateTextNode('{}')) > $null; \
-             $t.Item(1).AppendChild($x.CreateTextNode('{}')) > $null; \
-             [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('{}').Show([Windows.UI.Notifications.ToastNotification]::new($x))",
-            esc(iw::DISPLAY_NAME),
-            esc(&text),
-            esc(iw::DISPLAY_NAME),
-        );
-        std::process::Command::new("powershell")
-            .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &script])
-            .creation_flags(0x0800_0000)
-            .spawn()
-            .ok();
+        let call = iw::notify::powershell_toast(iw::DISPLAY_NAME, &text);
+        let mut cmd = std::process::Command::new("powershell");
+        cmd.args(&call.args).creation_flags(0x0800_0000);
+        for (k, v) in &call.env {
+            cmd.env(k, v);
+        }
+        cmd.spawn().ok();
     }
     #[cfg(not(any(target_os = "macos", windows)))]
     log::info!("iw: {text}");

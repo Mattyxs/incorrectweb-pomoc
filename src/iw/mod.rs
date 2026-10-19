@@ -12,3 +12,6 @@ pub mod link;
 pub mod consent;
 pub mod api;
 pub mod sessionlog;
+pub mod notify;
+pub mod scheme;
+pub mod policy;

@@ -23,8 +23,11 @@ Every change is marked `// IW:` (Rust, Dart). Pure logic is in `src/iw/` and is 
 - `flutter/lib/common.dart`, `desktop/pages/{server_page,desktop_home_page,desktop_setting_page}.dart`, `models/server_model.dart`: hooks into the widgets.
 - `flutter/macos/*`, `flutter/windows/runner/Runner.rc`, `build.py`: names, bundle id, URL scheme.
 - `res/*`, `flutter/assets/icon.svg`, `flutter/windows/runner/resources/app_icon.ico`: temporary logo.
-- `.github/workflows/incorrectweb-build.yml`: build (RustDesk workflows removed), read-only token for build jobs.
+- `.github/workflows/incorrectweb-build.yml`: build (RustDesk workflows removed), read-only token for build jobs, Flutter engine and nasm pinned by SHA-256.
+- `src/lan.rs`: LAN discovery answers only after an explicit opt-in (default off).
+- `src/iw/{notify,scheme,policy}.rs`: notification commands without text in the script, rules for writing the `iwpomoc://` registration, safe defaults.
 
 ## Notes
 - Device key: the Ed25519 pair RustDesk keeps for the computer (shared by user and service processes).
 - Tray: tooltip only, no warning dot.
+- Organization code: the name found on the server is shown and must be confirmed before anything is applied. Plain http to localhost is accepted in test builds only.
