@@ -184,11 +184,22 @@ jobs:
           architecture: x64
 
       # https://github.com/flutter/flutter/issues/155685
+      # The engine comes from the only release of rustdesk/engine ("main", published 2024-11-29, asset
+      # windows-x64-release.zip, 63301215 bytes). The tag cannot be pinned to a commit, so the content is
+      # pinned by SHA-256 and checked before use.
+      - name: Download rustdesk custom flutter engine
+        shell: bash
+        env:
+          ENGINE_URL: https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip
+          ENGINE_SHA256: ec8cabf36ee4ff24c8d98de25b00e70781eb03876265aee84d0fe554a110036e
+        run: |
+          curl -fsSL --retry 3 -o windows-x64-release.zip "$ENGINE_URL"
+          echo "$ENGINE_SHA256  windows-x64-release.zip" | sha256sum -c -
+
       - name: Replace engine with rustdesk custom flutter engine
         run: |
           flutter doctor -v
           flutter precache --windows
-          Invoke-WebRequest -Uri https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip -OutFile windows-x64-release.zip
           Expand-Archive -Path windows-x64-release.zip -DestinationPath windows-x64-release
           mv -Force windows-x64-release/*  C:/hostedtoolcache/windows/flutter/stable-${{ env.FLUTTER_VERSION }}-x64/bin/cache/artifacts/engine/windows-x64-release/
 
@@ -320,8 +331,9 @@ jobs:
 
       - name: Install NASM
         run: |
-          # NASM 2.16.x from the official release (NASM 3.x is incompatible with aom and others).
-          wget https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/macosx/nasm-2.16.03-macosx.zip
+          # NASM 2.16.x from the official release (NASM 3.x is incompatible with aom and others), checked by SHA-256.
+          curl -fsSL --retry 3 -o nasm-2.16.03-macosx.zip https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/macosx/nasm-2.16.03-macosx.zip
+          echo "0d29bcd8a5fc617333f4549c7c1f93d1866a4a0915c40359e0a8585bb1a5aa75  nasm-2.16.03-macosx.zip" | shasum -a 256 -c -
           unzip nasm-2.16.03-macosx.zip
           sudo cp nasm-2.16.03/nasm /usr/local/bin/nasm
           nasm --version
