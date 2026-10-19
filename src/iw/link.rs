@@ -51,6 +51,34 @@ pub fn parse_link(link: &str) -> Option<IwLink> {
     Some(IwLink { id: id.to_owned(), intent })
 }
 
+/// What the first command line argument is (the program started by a link handler gets the link there).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LaunchArg {
+    /// No argument or an ordinary one (`--server`, `--connect`, a path, an ID).
+    Plain,
+    /// `iwpomoc://...`: only the link is kept, every argument after it is dropped.
+    Link,
+    /// A link of any other scheme (`incorrectwebpomoc://` of the installer, `rustdesk://`, `https://`): ignored.
+    Foreign,
+}
+
+pub fn classify_launch_arg(first: Option<&str>) -> LaunchArg {
+    let Some(a) = first else {
+        return LaunchArg::Plain;
+    };
+    let prefix = format!("{SCHEME}://");
+    if a.get(..prefix.len()).map_or(false, |h| h.eq_ignore_ascii_case(&prefix)) {
+        return LaunchArg::Link;
+    }
+    // `scheme:` with a scheme of 2+ characters (a drive letter `C:` is one character)
+    let scheme = a.split(':').next().unwrap_or_default();
+    let is_url = a.contains(':')
+        && scheme.len() >= 2
+        && scheme.starts_with(|c: char| c.is_ascii_alphabetic())
+        && scheme.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'));
+    if is_url { LaunchArg::Foreign } else { LaunchArg::Plain }
+}
+
 #[derive(Default)]
 pub struct IntentStore {
     items: HashMap<String, (String, Instant)>,
@@ -157,5 +185,32 @@ mod tests {
         assert_eq!(s.take("123456789", now + Duration::from_secs(121)), None);
         s.put("123456789", TOKEN, now);
         assert_eq!(s.take("123456789", now + Duration::from_secs(119)).as_deref(), Some(TOKEN));
+    }
+
+    #[test]
+    fn launch_with_our_link_keeps_only_the_link() {
+        assert_eq!(classify_launch_arg(Some("iwpomoc://connect/123456789?intent=x")), LaunchArg::Link);
+        assert_eq!(classify_launch_arg(Some("IWPOMOC://connect/123456789")), LaunchArg::Link);
+    }
+
+    #[test]
+    fn launch_with_a_link_of_another_scheme_is_ignored() {
+        for a in [
+            "incorrectwebpomoc://connection/new/123456789?password=x",
+            "incorrectwebpomoc:connection/new/123456789",
+            "rustdesk://123456789",
+            "https://example.com/",
+            "iwpomoc:connect/123456789",
+        ] {
+            assert_eq!(classify_launch_arg(Some(a)), LaunchArg::Foreign, "{a}");
+        }
+    }
+
+    #[test]
+    fn ordinary_arguments_are_plain() {
+        for a in ["--server", "--connect", "--cm", r"C:\Users\Jan\x.incorrectwebpomoc", "/tmp/x", "123456789"] {
+            assert_eq!(classify_launch_arg(Some(a)), LaunchArg::Plain, "{a}");
+        }
+        assert_eq!(classify_launch_arg(None), LaunchArg::Plain);
     }
 }

@@ -2271,6 +2271,10 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
     iwHandleLink(iwRaw);
     return true;
   }
+  // IW: no other link opens a connection (incorrectwebpomoc:// of the installer, a link from another instance);
+  // only iwpomoc:// above, after the user confirms it.
+  if (uri != null || uriString != null) return false;
+  if (cmdArgs != null && cmdArgs.isNotEmpty && cmdArgs[0].contains('://')) return false;
   List<String>? args;
   if (cmdArgs != null && cmdArgs.isNotEmpty) {
     args = cmdArgs;

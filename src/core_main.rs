@@ -81,6 +81,20 @@ pub fn core_main() -> Option<Vec<String>> {
         }
         i += 1;
     }
+    // IW: a link handler starts the program with the link only. Arguments after it (injected through "%1") are
+    // dropped, and a link of another scheme never reaches the RustDesk link handler (no connection without asking).
+    match crate::iw::link::classify_launch_arg(args.first().map(String::as_str)) {
+        crate::iw::link::LaunchArg::Foreign => return None,
+        crate::iw::link::LaunchArg::Link => {
+            args.truncate(1);
+            _is_flutter_invoke_new_connection = false;
+            _is_elevate = false;
+            _is_run_as_system = false;
+            _is_quick_support = false;
+            no_server = false;
+        }
+        crate::iw::link::LaunchArg::Plain => {}
+    }
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     if args.is_empty() {
         #[cfg(target_os = "linux")]
