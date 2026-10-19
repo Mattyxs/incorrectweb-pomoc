@@ -1,0 +1,19 @@
+# IW: standalone crate that compiles and tests the pure logic of src/iw without Flutter, scrap or vcpkg.
+[package]
+name = "iw-tests"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+hbb_common = { path = "../libs/hbb_common" }
+serde = "1.0"
+serde_json = "1.0"
+sha2 = "0.10"
+hex = "0.4"
+url = "2.3"
+
+[workspace]
+
