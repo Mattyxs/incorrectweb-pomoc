@@ -96,6 +96,13 @@ pub fn init() {
             d.entry(k.to_owned()).or_insert_with(|| v.to_owned());
         }
     }
+    // IW: fit to window and show the client cursor for computers without a saved choice
+    {
+        let mut d = config::DEFAULT_DISPLAY_SETTINGS.write().unwrap();
+        for (k, v) in iw::policy::DISPLAY_DEFAULTS {
+            d.entry((*k).to_owned()).or_insert_with(|| (*v).to_owned());
+        }
+    }
     {
         let mut o = config::OVERWRITE_SETTINGS.write().unwrap();
         for (k, v) in [(keys::OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION, "N"), ("allow-hide-cm", "N")] {

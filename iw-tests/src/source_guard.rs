@@ -89,3 +89,10 @@ fn workflow_downloads_are_checked_against_sha256() {
         assert!(wf.contains(h), "missing {h}");
     }
 }
+
+#[test]
+fn iw_app_sets_display_defaults() {
+    let app = repo_file("src/iw_app.rs");
+    assert!(app.contains("DEFAULT_DISPLAY_SETTINGS"), "iw_app::init must fill DEFAULT_DISPLAY_SETTINGS");
+    assert!(app.contains("DISPLAY_DEFAULTS"), "iw_app::init must use iw::policy::DISPLAY_DEFAULTS");
+}
