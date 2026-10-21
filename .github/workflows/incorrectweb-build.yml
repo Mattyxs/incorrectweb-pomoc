@@ -50,6 +50,26 @@ jobs:
       - name: Run iw tests
         run: cargo test --manifest-path iw-tests/Cargo.toml
 
+  flutter-tests:
+    # IW: widget tests of the iw Flutter code (lib/iw only, no native library)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          submodules: recursive
+      - name: Install flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: "stable"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Run iw Flutter tests
+        run: |
+          cd flutter
+          flutter pub get
+          flutter test test/iw_*
+
   generate-bridge:
     runs-on: ubuntu-22.04
     steps:
@@ -425,7 +445,7 @@ jobs:
           path: out/IncorrectWebPomoc-${{ env.VERSION }}-${{ matrix.job.arch }}.dmg
 
   release:
-    needs: [unit-tests, build-windows-x64, build-macos]
+    needs: [unit-tests, flutter-tests, build-windows-x64, build-macos]
     if: ${{ github.ref_type == 'tag' || inputs.release }}
     runs-on: ubuntu-22.04
     permissions:

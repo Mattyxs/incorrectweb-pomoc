@@ -131,3 +131,12 @@ fn theme_uses_incorrectus_brand_and_onest() {
     }
     assert!(repo_file("flutter/assets/fonts/OFL.txt").contains("SIL OPEN FONT LICENSE"));
 }
+
+#[test]
+fn release_waits_for_flutter_tests() {
+    let wf = repo_file(".github/workflows/incorrectweb-build.yml");
+    assert!(wf.contains("flutter-tests:"), "workflow needs the flutter-tests job");
+    assert!(wf.contains("flutter test test/iw_"), "the job must run the iw Flutter tests");
+    let needs = wf.lines().find(|l| l.trim_start().starts_with("needs: [unit-tests")).expect("release needs");
+    assert!(needs.contains("flutter-tests"), "release must wait for flutter-tests: {needs}");
+}
