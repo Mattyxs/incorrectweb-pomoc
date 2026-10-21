@@ -22,6 +22,7 @@ import '../../utils/image.dart';
 import '../widgets/remote_toolbar.dart';
 import '../widgets/kb_layout_type_chooser.dart';
 import '../widgets/tabbar_widget.dart';
+import 'iw_widgets.dart'; // IW: IwCursorLabel
 
 import 'package:flutter_hbb/native/custom_cursor.dart'
     if (dart.library.html) 'package:flutter_hbb/web/custom_cursor.dart';
@@ -810,7 +811,9 @@ class _ImagePaintState extends State<ImagePaint> {
                               ? (() {
                                   if (remoteCursorMoved.isTrue) {
                                     _lastRemoteCursorMoved = true;
-                                    return SystemMouseCursors.none;
+                                    // IW: both cursors visible, the client cursor gets a label
+                                    return _buildCustomCursor(
+                                        context, getCursorScale());
                                   } else {
                                     if (_lastRemoteCursorMoved) {
                                       _lastRemoteCursorMoved = false;
@@ -1091,13 +1094,25 @@ class CursorPaint extends StatelessWidget {
       scale = c.scale;
     }
 
-    return CustomPaint(
+    final paint = CustomPaint(
       painter: ImagePainter(
         image: m.image ?? preDefaultCursor.image,
         x: x,
         y: y,
         scale: scale,
       ),
+    );
+    // IW: label next to the hot spot of the client cursor (same position in both branches above)
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        paint,
+        Positioned(
+          left: m.x * c.scale + cx + 14,
+          top: m.y * c.scale + cy + 18,
+          child: const IgnorePointer(child: IwCursorLabel()),
+        ),
+      ],
     );
   }
 }

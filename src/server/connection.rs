@@ -2367,6 +2367,14 @@ impl Connection {
     }
 
     /// Which password the controller proved (none, one-time, permanent, wrong).
+    // IW: caption under the pointer shown to the client ("show my cursor")
+    fn iw_cursor_label(&self) -> String {
+        crate::iw::policy::cursor_label(
+            self.iw.verified_info().map(|v| v.consultant_name.as_str()),
+            &self.lr.my_name,
+        )
+    }
+
     fn iw_classify_password(&mut self) -> crate::iw::consent::Credential {
         use crate::iw::consent::Credential;
         if self.lr.password.is_empty() {
@@ -2616,7 +2624,8 @@ impl Connection {
 
     async fn handle_login_request_without_validation(&mut self, lr: &LoginRequest) {
         self.lr = lr.clone();
-        self.peer_argb = crate::str2color(&format!("{}{}", &lr.my_id, &lr.my_platform), 0xff);
+        // IW: the pointer of the technician has the brand color, not a color made from the id
+        self.peer_argb = crate::iw::policy::POINTER_ARGB;
         if let Some(o) = lr.option.as_ref() {
             self.options_in_login = Some(o.clone());
         }
@@ -2927,7 +2936,7 @@ impl Connection {
                         self.input_mouse(
                             me,
                             self.inner.id(),
-                            self.lr.my_name.clone(),
+                            self.iw_cursor_label(), // IW: consultant name
                             self.peer_argb,
                             true,
                             self.show_my_cursor,
@@ -2938,7 +2947,7 @@ impl Connection {
                         self.input_mouse(
                             me,
                             self.inner.id(),
-                            self.lr.my_name.clone(),
+                            self.iw_cursor_label(), // IW: consultant name
                             self.peer_argb,
                             false,
                             true,

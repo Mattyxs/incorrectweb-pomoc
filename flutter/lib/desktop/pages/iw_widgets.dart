@@ -5,13 +5,14 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/iw/iw_brand.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-const Color kIwViolet = Color(0xFF431C77);
-const Color kIwOrange = Color(0xFFEF7D1D);
+// IW: brand constants live in iw_brand.dart (no FFI import, so tests can use them)
+export 'package:flutter_hbb/iw/iw_brand.dart';
 
 /// Status from the Rust side: configured, org, unattended, keyMismatch, version, name, source.
 Map<String, dynamic> iwStatus() {

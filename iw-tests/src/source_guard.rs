@@ -96,3 +96,16 @@ fn iw_app_sets_display_defaults() {
     assert!(app.contains("DEFAULT_DISPLAY_SETTINGS"), "iw_app::init must fill DEFAULT_DISPLAY_SETTINGS");
     assert!(app.contains("DISPLAY_DEFAULTS"), "iw_app::init must use iw::policy::DISPLAY_DEFAULTS");
 }
+
+#[test]
+fn remote_page_keeps_local_cursor_visible() {
+    let page = repo_file("flutter/lib/desktop/pages/remote_page.dart");
+    assert!(page.contains("IwCursorLabel"), "CursorPaint must draw the label of the client cursor");
+    assert!(page.contains("IW: both cursors visible"), "the local cursor must stay visible while the client moves the mouse");
+}
+
+#[test]
+fn whiteboard_cursor_uses_brand_orange() {
+    let conn = repo_file("src/server/connection.rs");
+    assert!(conn.contains("POINTER_ARGB") && conn.contains("iw_cursor_label"), "the cursor of the technician shown at the client must be #ef7d1d");
+}

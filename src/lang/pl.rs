@@ -710,7 +710,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Supported only in the installed version.", "Wspierane tylko dla zainstalowanej aplikacji."),
         ("elevation_username_tip", "Podaj nazwę użytkownika lub domena\\użytkownik"),
         ("Preparing for installation ...", "Przygotowywanie do instalacji ..."),
-        ("Show my cursor", "Pokaż mój kursor"),
+        // IW: shown only without control, see iw_cursor_label
+        ("Show my cursor", "Wskazywanie (bez sterowania)"),
         ("Scale custom", "Skala użytkownika"),
         ("Custom scale slider", "Suwak skali użytkownika"),
         ("Decrease", "Zmniejsz"),

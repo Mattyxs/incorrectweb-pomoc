@@ -14,6 +14,17 @@ pub fn view_style_default() -> &'static str {
     "adaptive"
 }
 
+/// Color (ARGB) of the pointer of the technician drawn on the screen of the client.
+pub const POINTER_ARGB: u32 = 0xFFEF7D1D;
+
+/// Caption of that pointer: the verified consultant, else the name of the technician's system.
+pub fn cursor_label(verified_name: Option<&str>, system_name: &str) -> String {
+    match verified_name.map(str::trim) {
+        Some(n) if !n.is_empty() => n.to_owned(),
+        _ => system_name.to_owned(),
+    }
+}
+
 /// LAN discovery answers pings of other computers only after an explicit opt-in.
 pub fn lan_discovery_enabled(option_value: &str) -> bool {
     option_value == "Y"
@@ -29,6 +40,18 @@ mod tests {
         assert_eq!(get("view_style"), Some("adaptive"));
         assert_eq!(get("show_remote_cursor"), Some("Y"));
         assert_eq!(view_style_default(), "adaptive");
+    }
+
+    #[test]
+    fn pointer_label_is_the_verified_consultant_or_the_system_name() {
+        assert_eq!(cursor_label(Some("Jan Kowalski"), "mac-jan"), "Jan Kowalski");
+        assert_eq!(cursor_label(Some("  "), "mac-jan"), "mac-jan");
+        assert_eq!(cursor_label(None, "mac-jan"), "mac-jan");
+    }
+
+    #[test]
+    fn the_pointer_color_is_the_brand_orange() {
+        assert_eq!(POINTER_ARGB, 0xFFEF7D1D);
     }
 
     #[test]
