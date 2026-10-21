@@ -47,6 +47,7 @@ import 'package:flutter_hbb/native/win32.dart'
 import 'package:flutter_hbb/native/common.dart'
     if (dart.library.html) 'package:flutter_hbb/web/common.dart';
 import 'package:flutter_hbb/utils/http_service.dart' as http;
+import 'package:flutter_hbb/iw/iw_brand.dart'; // IW: brand constants
 
 final globalKey = GlobalKey<NavigatorState>();
 final navigationBarKey = GlobalKey();
@@ -173,7 +174,7 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
     border: Color(0xFFCCCCCC),
     border2: Color(0xFFBBBBBB),
     border3: Colors.black26,
-    highlight: Color(0xFFE5E5E5),
+    highlight: Color(0xFFF1ECF8), // IW: soft violet
     drag_indicator: Colors.grey[800],
     shadow: Colors.black,
     errorBannerBg: Color(0xFFFDEEEB),
@@ -187,7 +188,7 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
     border: Color(0xFF555555),
     border2: Color(0xFFE5E5E5),
     border3: Colors.white24,
-    highlight: Color(0xFF3F3F3F),
+    highlight: Color(0xFF2A1D3D), // IW: soft violet
     drag_indicator: Colors.grey,
     shadow: Colors.grey,
     errorBannerBg: Color(0xFF470F2D),
@@ -251,17 +252,18 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
 class MyTheme {
   MyTheme._();
 
+  // IW: brand colors (violet #431c77, orange #ef7d1d) in accent, accent50, accent80, idColor, button
   static const Color grayBg = Color(0xFFEFEFF2);
-  static const Color accent = Color(0xFF0071FF);
-  static const Color accent50 = Color(0x770071FF);
-  static const Color accent80 = Color(0xAA0071FF);
+  static const Color accent = Color(0xFF431C77);
+  static const Color accent50 = Color(0x77431C77);
+  static const Color accent80 = Color(0xAA431C77);
   static const Color canvasColor = Color(0xFF212121);
   static const Color border = Color(0xFFCCCCCC);
-  static const Color idColor = Color(0xFF00B6F0);
+  static const Color idColor = Color(0xFFEF7D1D);
   static const Color darkGray = Color.fromARGB(255, 148, 148, 148);
   static const Color cmIdColor = Color(0xFF21790B);
   static const Color dark = Colors.black87;
-  static const Color button = Color(0xFF2C8CFF);
+  static const Color button = Color(0xFF431C77);
   static const Color hoverBorder = Color(0xFF999999);
 
   // ListTile
@@ -375,6 +377,8 @@ class MyTheme {
   static ThemeData lightTheme = ThemeData(
     // https://stackoverflow.com/questions/77537315/after-upgrading-to-flutter-3-16-the-app-bar-background-color-button-size-and
     useMaterial3: false,
+    fontFamily: 'Onest', // IW: font in the package
+    colorScheme: ColorScheme.light(primary: kIwViolet, secondary: kIwOrange), // IW
     brightness: Brightness.light,
     hoverColor: Color.fromARGB(255, 224, 224, 224),
     scaffoldBackgroundColor: Colors.white,
@@ -473,6 +477,8 @@ class MyTheme {
   );
   static ThemeData darkTheme = ThemeData(
     useMaterial3: false,
+    fontFamily: 'Onest', // IW: font in the package
+    colorScheme: ColorScheme.dark(primary: kIwVioletOnDark, secondary: kIwOrange), // IW
     brightness: Brightness.dark,
     hoverColor: Color.fromARGB(255, 45, 46, 53),
     scaffoldBackgroundColor: Color(0xFF18191E),

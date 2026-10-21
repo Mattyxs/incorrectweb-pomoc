@@ -109,3 +109,25 @@ fn whiteboard_cursor_uses_brand_orange() {
     let conn = repo_file("src/server/connection.rs");
     assert!(conn.contains("POINTER_ARGB") && conn.contains("iw_cursor_label"), "the cursor of the technician shown at the client must be #ef7d1d");
 }
+
+#[test]
+fn no_rustdesk_title_in_tabbar() {
+    let tab = repo_file("flutter/lib/desktop/widgets/tabbar_widget.dart");
+    assert!(!tab.contains("\"RustDesk\""), "the tab bar must show the product name, not RustDesk");
+}
+
+#[test]
+fn theme_uses_incorrectus_brand_and_onest() {
+    let common = repo_file("flutter/lib/common.dart");
+    assert!(common.contains("0xFF431C77"), "MyTheme.accent must be the brand violet");
+    assert!(common.contains("fontFamily: 'Onest'"), "light and dark theme need fontFamily Onest");
+    assert_eq!(common.matches("fontFamily: 'Onest'").count(), 2, "both themes");
+    let pubspec = repo_file("flutter/pubspec.yaml");
+    assert!(pubspec.contains("family: Onest"));
+    for f in ["Regular", "Medium", "SemiBold", "Bold"] {
+        let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("../flutter/assets/fonts/Onest-{f}.ttf"));
+        assert!(p.exists(), "{}", p.display());
+        assert!(pubspec.contains(&format!("Onest-{f}.ttf")), "{f} not in pubspec");
+    }
+    assert!(repo_file("flutter/assets/fonts/OFL.txt").contains("SIL OPEN FONT LICENSE"));
+}

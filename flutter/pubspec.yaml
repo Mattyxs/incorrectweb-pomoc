@@ -152,8 +152,20 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/
+    - assets/fonts/OFL.txt # IW: license of Onest, ships with the app
 
   fonts:
+    # IW: Onest (SIL OFL, assets/fonts/OFL.txt), static instances of the variable font
+    - family: Onest
+      fonts:
+        - asset: assets/fonts/Onest-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Onest-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Onest-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Onest-Bold.ttf
+          weight: 700
     - family: GestureIcons
       fonts:
         - asset: assets/gestures.ttf

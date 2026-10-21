@@ -4,6 +4,13 @@ import 'package:flutter/material.dart';
 
 const Color kIwViolet = Color(0xFF431C77);
 const Color kIwOrange = Color(0xFFEF7D1D);
+/// The violet is too dark on the dark theme (contrast 1.4), this one has 4.9.
+const Color kIwVioletOnDark = Color(0xFFA070E0);
+/// Background of the dark theme (`scaffoldBackgroundColor` in `MyTheme.darkTheme`).
+const Color kIwDarkBackground = Color(0xFF18191E);
+
+/// Product name for texts (the executable and window title are `IncorrectWebPomoc`, see APP_NAME).
+const String kIwProductName = 'IncorrectWeb Pomoc';
 
 const String kIwClientCursorLabel = 'Klient';
 
