@@ -122,6 +122,9 @@ fn theme_uses_incorrectus_brand_and_onest() {
     assert!(common.contains("0xFF431C77"), "MyTheme.accent must be the brand violet");
     assert!(common.contains("fontFamily: 'Onest'"), "light and dark theme need fontFamily Onest");
     assert_eq!(common.matches("fontFamily: 'Onest'").count(), 2, "both themes");
+    // a second `colorScheme:` argument in one ThemeData does not compile (it broke iw.3)
+    assert_eq!(common.matches("    colorScheme:").count(), 2, "one colorScheme per theme");
+    assert!(common.contains("kIwVioletOnDark"));
     let pubspec = repo_file("flutter/pubspec.yaml");
     assert!(pubspec.contains("family: Onest"));
     for f in ["Regular", "Medium", "SemiBold", "Bold"] {

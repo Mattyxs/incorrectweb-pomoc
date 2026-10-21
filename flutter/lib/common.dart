@@ -378,7 +378,6 @@ class MyTheme {
     // https://stackoverflow.com/questions/77537315/after-upgrading-to-flutter-3-16-the-app-bar-background-color-button-size-and
     useMaterial3: false,
     fontFamily: 'Onest', // IW: font in the package
-    colorScheme: ColorScheme.light(primary: kIwViolet, secondary: kIwOrange), // IW
     brightness: Brightness.light,
     hoverColor: Color.fromARGB(255, 224, 224, 224),
     scaffoldBackgroundColor: Colors.white,
@@ -459,7 +458,9 @@ class MyTheme {
         style:
             MenuStyle(backgroundColor: MaterialStatePropertyAll(Colors.white))),
     colorScheme: ColorScheme.light(
-        primary: Colors.blue, secondary: accent, background: grayBg),
+        primary: kIwViolet, // IW: brand
+        secondary: accent,
+        background: grayBg),
     popupMenuTheme: PopupMenuThemeData(
         color: Colors.white,
         shape: RoundedRectangleBorder(
@@ -478,7 +479,6 @@ class MyTheme {
   static ThemeData darkTheme = ThemeData(
     useMaterial3: false,
     fontFamily: 'Onest', // IW: font in the package
-    colorScheme: ColorScheme.dark(primary: kIwVioletOnDark, secondary: kIwOrange), // IW
     brightness: Brightness.dark,
     hoverColor: Color.fromARGB(255, 45, 46, 53),
     scaffoldBackgroundColor: Color(0xFF18191E),
@@ -569,8 +569,8 @@ class MyTheme {
         style: MenuStyle(
             backgroundColor: MaterialStatePropertyAll(Color(0xFF121212)))),
     colorScheme: ColorScheme.dark(
-      primary: Colors.blue,
-      secondary: accent,
+      primary: kIwVioletOnDark, // IW: brand, readable on dark
+      secondary: kIwVioletOnDark,
       background: Color(0xFF24252B),
     ),
     popupMenuTheme: PopupMenuThemeData(
