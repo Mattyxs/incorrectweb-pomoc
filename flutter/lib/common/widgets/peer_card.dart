@@ -1,5 +1,6 @@
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/iw/iw_tokens.dart'; // IW
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -145,7 +146,7 @@ class _PeerCardState extends State<_PeerCard>
       children: [
         Container(
             decoration: BoxDecoration(
-              color: str2color('${peer.id}${peer.platform}', 0x7f),
+              color: IwPalette.of(context).violetSoft, // IW: device tile
               borderRadius: isPortrait
                   ? BorderRadius.circular(_tileRadius)
                   : BorderRadius.only(
@@ -158,7 +159,9 @@ class _PeerCardState extends State<_PeerCard>
             height: isPortrait ? 50 : null,
             child: Stack(
               children: [
-                getPlatformImage(peer.platform, size: isPortrait ? 38 : 30)
+                getPlatformImage(peer.platform,
+                        size: isPortrait ? 38 : 30,
+                        color: IwPalette.of(context).accentInk)
                     .paddingAll(6),
                 if (_shouldBuildPasswordIcon(peer))
                   Positioned(
@@ -171,7 +174,7 @@ class _PeerCardState extends State<_PeerCard>
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.background,
+              color: IwPalette.of(context).panel, // IW
               borderRadius: BorderRadius.only(
                 topRight: Radius.circular(_tileRadius),
                 bottomRight: Radius.circular(_tileRadius),
@@ -188,7 +191,9 @@ class _PeerCardState extends State<_PeerCard>
                             child: Text(
                           peer.alias.isEmpty ? formatID(peer.id) : peer.alias,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall,
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontFeatures: kIwTabular), // IW
                         )),
                       ]).marginOnly(top: isPortrait ? 0 : 2),
                       Row(
@@ -295,6 +300,13 @@ class _PeerCardState extends State<_PeerCard>
       child: Obx(
         () => Container(
           foregroundDecoration: deco.value,
+          // IW: white card with a hairline, like the cards of the IncorrectWeb apps
+          decoration: BoxDecoration(
+            color: IwPalette.of(context).panel,
+            borderRadius: BorderRadius.circular(_cardRadius),
+            border: Border.all(color: IwPalette.of(context).line),
+            boxShadow: IwPalette.of(context).cardShadow,
+          ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(_cardRadius - _borderWidth),
             child: Column(
@@ -303,7 +315,7 @@ class _PeerCardState extends State<_PeerCard>
               children: [
                 Expanded(
                   child: Container(
-                    color: str2color('${peer.id}${peer.platform}', 0x7f),
+                    color: IwPalette.of(context).violetSoft, // IW: device tile
                     child: Row(
                       children: [
                         Expanded(
@@ -312,8 +324,9 @@ class _PeerCardState extends State<_PeerCard>
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(6),
-                                child:
-                                    getPlatformImage(peer.platform, size: 60),
+                                child: getPlatformImage(peer.platform,
+                                    size: 52,
+                                    color: IwPalette.of(context).accentInk),
                               ),
                               Row(
                                 children: [
@@ -323,9 +336,9 @@ class _PeerCardState extends State<_PeerCard>
                                       waitDuration: const Duration(seconds: 1),
                                       child: Text(
                                         name,
-                                        style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12),
+                                        style: TextStyle(
+                                            color: IwPalette.of(context).ink2,
+                                            fontSize: 12.5),
                                         textAlign: TextAlign.center,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -342,9 +355,9 @@ class _PeerCardState extends State<_PeerCard>
                                       waitDuration: const Duration(seconds: 1),
                                       child: Text(
                                         peer.note,
-                                        style: const TextStyle(
-                                            color: Colors.white38,
-                                            fontSize: 10),
+                                        style: TextStyle(
+                                            color: IwPalette.of(context).muted,
+                                            fontSize: 11),
                                         textAlign: TextAlign.center,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -359,7 +372,7 @@ class _PeerCardState extends State<_PeerCard>
                   ),
                 ),
                 Container(
-                  color: Theme.of(context).colorScheme.background,
+                  color: IwPalette.of(context).panel, // IW
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -1471,7 +1484,10 @@ Widget getOnline(double rightPadding, bool online) {
       child: Padding(
           padding: EdgeInsets.fromLTRB(0, 4, rightPadding, 4),
           child: CircleAvatar(
-              radius: 3, backgroundColor: online ? Colors.green : kColorWarn)));
+              radius: 3.5,
+              backgroundColor: online
+                  ? IwPalette.light.ok
+                  : IwPalette.light.orange))); // IW: status colors
 }
 
 Widget build_more(BuildContext context, {bool invert = false}) {

@@ -186,10 +186,11 @@ class _InstallPageBodyState extends State<_InstallPageBody>
                               .marginOnly(bottom: em),
                           InkWell(
                             hoverColor: Colors.transparent,
+                            // IW: the license of the program, not the RustDesk privacy page
                             onTap: () => launchUrlString(
-                                'https://rustdesk.com/privacy.html'),
+                                'https://github.com/Mattyxs/incorrectweb-pomoc/blob/main/LICENCE'),
                             child: Tooltip(
-                              message: 'https://rustdesk.com/privacy.html',
+                              message: 'GNU AGPL-3.0',
                               child: Row(children: [
                                 Icon(Icons.launch_outlined, size: 16)
                                     .marginOnly(right: 5),

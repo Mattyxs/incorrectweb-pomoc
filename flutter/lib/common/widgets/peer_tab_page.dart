@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/iw/iw_tokens.dart'; // IW
 import 'package:flutter_hbb/common/widgets/address_book.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/my_group.dart';
@@ -110,12 +111,15 @@ class _PeerTabPageState extends State<PeerTabPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Obx(() => SizedBox(
-              height: 32,
+              height: 36, // IW: room for the pills
               child: Container(
                 padding: stateGlobal.isPortrait.isTrue
                     ? EdgeInsets.symmetric(horizontal: 2)
                     : null,
-                child: selectionWrap(Row(
+                child: selectionWrap(IconTheme.merge(
+                    data: IconThemeData(
+                        color: IwPalette.of(context).muted, size: 20), // IW
+                    child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
@@ -126,7 +130,7 @@ class _PeerTabPageState extends State<PeerTabPage>
                     else
                       ..._landscapeRightActions(context)
                   ],
-                )),
+                ))),
               ),
             ).paddingOnly(right: stateGlobal.isPortrait.isTrue ? 0 : 12)),
         _createPeersView(),
@@ -144,18 +148,14 @@ class _PeerTabPageState extends State<PeerTabPage>
         physics: NeverScrollableScrollPhysics(),
         children: model.visibleEnabledOrderedIndexs.map((t) {
           final selected = model.currentTab == t;
-          final color = selected
-              ? MyTheme.tabbar(context).selectedTextColor
-              : MyTheme.tabbar(context).unSelectedTextColor
-            ?..withOpacity(0.5);
+          // IW: tabs as pills: the selected one violet-soft, hover white
+          final pal = IwPalette.of(context);
+          final color = selected ? pal.accentInk : pal.muted;
           final hover = false.obs;
           final deco = BoxDecoration(
-              color: Theme.of(context).colorScheme.background,
-              borderRadius: BorderRadius.circular(6));
+              color: pal.panel, borderRadius: BorderRadius.circular(8));
           final decoBorder = BoxDecoration(
-              border: Border(
-            bottom: BorderSide(width: 2, color: color!),
-          ));
+              color: pal.violetSoft, borderRadius: BorderRadius.circular(8));
           counter += 1;
           return ReorderableDragStartListener(
               key: ValueKey(t),
@@ -169,9 +169,9 @@ class _PeerTabPageState extends State<PeerTabPage>
                         decoration: (hover.value
                             ? (selected ? decoBorder : deco)
                             : (selected ? decoBorder : null)),
-                        child: Icon(model.tabIcon(t), color: color)
-                            .paddingSymmetric(horizontal: 4),
-                      ).paddingSymmetric(horizontal: 4),
+                        width: 40,
+                        child: Icon(model.tabIcon(t), color: color, size: 20),
+                      ).paddingSymmetric(horizontal: 2),
                       onTap: isOptionFixed(kOptionPeerTabIndex)
                           ? null
                           : () async {
@@ -697,8 +697,9 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
     return Obx(() => Container(
           width: stateGlobal.isPortrait.isTrue ? 120 : 140,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.background,
-            borderRadius: BorderRadius.circular(6),
+            color: IwPalette.of(context).panel, // IW
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: IwPalette.of(context).line2),
           ),
           child: Row(
             children: [
@@ -966,8 +967,8 @@ class RefreshWidgetState extends State<RefreshWidget> {
   @override
   Widget build(BuildContext context) {
     final deco = BoxDecoration(
-      color: Theme.of(context).colorScheme.background,
-      borderRadius: BorderRadius.circular(6),
+      color: IwPalette.of(context).panel, // IW: visible on the lavender page
+      borderRadius: BorderRadius.circular(8),
     );
     return AnimatedRotation(
         turns: turns,
@@ -1008,8 +1009,8 @@ Widget _hoverAction(
     EdgeInsetsGeometry padding = const EdgeInsets.all(4.0)}) {
   final hover = false.obs;
   final deco = BoxDecoration(
-    color: Theme.of(context).colorScheme.background,
-    borderRadius: BorderRadius.circular(6),
+    color: IwPalette.of(context).panel, // IW: visible on the lavender page
+    borderRadius: BorderRadius.circular(8),
   );
   return Tooltip(
     message: toolTip,

@@ -7,10 +7,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/widgets/connection_page_title.dart';
 import 'package:flutter_hbb/consts.dart';
+import 'package:flutter_hbb/iw/iw_tokens.dart'; // IW
 import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
 
@@ -40,14 +40,8 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
   double get em => 14.0;
   double? get height => bind.isIncomingOnly() ? null : em * 3;
 
-  void onUsePublicServerGuide() {
-    const url = "https://rustdesk.com/pricing";
-    canLaunchUrlString(url).then((can) {
-      if (can) {
-        launchUrlString(url);
-      }
-    });
-  }
+  // IW: no guide to the RustDesk pricing page; the organization brings its own server
+  void onUsePublicServerGuide() {}
 
   @override
   void initState() {
@@ -80,9 +74,7 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
 
     setupServerWidget() => Flexible(
           child: Offstage(
-            offstage: !(!_svcStopped.value &&
-                stateGlobal.svcStatus.value == SvcStatus.ready &&
-                _svcIsUsingPublicServer.value),
+            offstage: true, // IW: no link to rustdesk.com
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -119,10 +111,10 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
                 borderRadius: BorderRadius.circular(4),
                 color: _svcStopped.value ||
                         stateGlobal.svcStatus.value == SvcStatus.connecting
-                    ? kColorWarn
+                    ? IwPalette.dark.orangeInk // IW: status colors readable on the dark column
                     : (stateGlobal.svcStatus.value == SvcStatus.ready
-                        ? Color.fromARGB(255, 50, 190, 166)
-                        : Color.fromARGB(255, 224, 79, 95)),
+                        ? IwPalette.dark.ok
+                        : IwPalette.dark.danger),
               ),
             ).marginSymmetric(horizontal: em),
             Container(
@@ -303,25 +295,21 @@ class _ConnectionPageState extends State<ConnectionPage>
 
   @override
   Widget build(BuildContext context) {
-    final isOutgoingOnly = bind.isOutgoingOnly();
-    return Column(
-      children: [
-        Expanded(
-            child: Column(
-          children: [
-            Row(
-              children: [
-                Flexible(child: _buildRemoteIDTextField(context)),
-              ],
-            ).marginOnly(top: 22),
-            SizedBox(height: 12),
-            Divider().paddingOnly(right: 12),
-            Expanded(child: PeerTabPage()),
-          ],
-        ).paddingOnly(left: 12.0)),
-        if (!isOutgoingOnly) const Divider(height: 1),
-        if (!isOutgoingOnly) OnlineStatusWidget()
-      ],
+    // IW: lavender page with the connect card; the status lives in the dark column
+    return Container(
+      color: IwPalette.of(context).bg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Flexible(child: _buildRemoteIDTextField(context)),
+            ],
+          ).marginOnly(top: 20, left: 20, right: 20),
+          const SizedBox(height: 22),
+          Expanded(child: PeerTabPage().paddingOnly(left: 20)),
+        ],
+      ),
     );
   }
 
@@ -341,16 +329,20 @@ class _ConnectionPageState extends State<ConnectionPage>
   /// UI for the remote ID TextField.
   /// Search for a peer.
   Widget _buildRemoteIDTextField(BuildContext context) {
+    final p = IwPalette.of(context);
     var w = Container(
-      width: 320 + 20 * 2,
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+      width: 400,
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+      // IW: white card of the IncorrectWeb apps
       decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(13)),
-          border: Border.all(color: Theme.of(context).colorScheme.background)),
+          color: p.panel,
+          borderRadius: BorderRadius.circular(kIwRadiusLg),
+          border: Border.all(color: p.line),
+          boxShadow: p.cardShadow),
       child: Ink(
         child: Column(
           children: [
-            getConnectionPageTitle(context, false).marginOnly(bottom: 15),
+            getConnectionPageTitle(context, false).marginOnly(bottom: 14),
             Row(
               children: [
                 Expanded(
@@ -418,15 +410,15 @@ class _ConnectionPageState extends State<ConnectionPage>
                           keyboardType: TextInputType.visiblePassword,
                           focusNode: fieldFocusNode,
                           style: const TextStyle(
-                            fontFamily: 'WorkSans',
-                            fontSize: 22,
+                            fontSize: 22, // IW: Onest with tabular digits
+                            fontWeight: FontWeight.w500,
                             height: 1.4,
+                            fontFeatures: kIwTabular,
                           ),
                           maxLines: 1,
                           cursorColor:
                               Theme.of(context).textTheme.titleLarge?.color,
                           decoration: InputDecoration(
-                              filled: false,
                               counterText: '',
                               hintText: _idInputFocused.value
                                   ? null
@@ -514,11 +506,23 @@ class _ConnectionPageState extends State<ConnectionPage>
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(top: 13.0),
+              padding: const EdgeInsets.only(top: 14.0),
               child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                // IW: the one main action is orange (`.btn-silver`)
                 SizedBox(
-                  height: 28.0,
+                  height: 40.0,
                   child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: p.orange,
+                      foregroundColor: p.onOrange,
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      textStyle: const TextStyle(
+                          fontFamily: 'Onest',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600),
+                    ).copyWith(
+                        overlayColor: MaterialStatePropertyAll(
+                            Colors.white.withOpacity(0.08))),
                     onPressed: () {
                       onConnect();
                     },
@@ -527,11 +531,12 @@ class _ConnectionPageState extends State<ConnectionPage>
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  height: 28.0,
-                  width: 28.0,
+                  height: 40.0,
+                  width: 40.0,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                    borderRadius: BorderRadius.circular(8),
+                    color: p.panel,
+                    border: Border.all(color: p.line2),
+                    borderRadius: BorderRadius.circular(kIwRadiusSm),
                   ),
                   child: Center(
                     child: StatefulBuilder(
@@ -541,9 +546,9 @@ class _ConnectionPageState extends State<ConnectionPage>
                               child: _menuOpen.value
                                   ? Transform.rotate(
                                       angle: pi,
-                                      child: Icon(IconFont.more, size: 14),
+                                      child: Icon(Icons.expand_more_rounded, size: 20, color: p.ink2),
                                     )
-                                  : Icon(IconFont.more, size: 14),
+                                  : Icon(Icons.expand_more_rounded, size: 20, color: p.ink2),
                               onTapDown: (e) {
                                 offset = e.globalPosition;
                               },

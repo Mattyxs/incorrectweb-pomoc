@@ -9,6 +9,7 @@ import 'package:flutter/material.dart' hide TabBarTheme;
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/iw/iw_brand.dart'; // IW: kIwProductName
+import 'package:flutter_hbb/iw/iw_tokens.dart'; // IW: tab strip colors
 import 'package:flutter_hbb/desktop/pages/remote_page.dart';
 import 'package:flutter_hbb/desktop/pages/view_camera_page.dart';
 import 'package:flutter_hbb/main.dart';
@@ -641,8 +642,8 @@ class _DesktopTabState extends State<DesktopTab>
                         ),
                         Offstage(
                             offstage: !showTitle,
-                            child: const Text(
-                              kIwProductName, // IW: product name instead of RustDesk
+                            child: Text(
+                              IwBranding.current.name, // IW: product name instead of RustDesk
                               style: TextStyle(fontSize: 13),
                             ).marginOnly(left: 2))
                       ]).marginOnly(
@@ -1456,29 +1457,30 @@ class TabbarTheme extends ThemeExtension<TabbarTheme> {
       required this.closeHoverColor,
       required this.selectedTabBackgroundColor});
 
-  static const light = TabbarTheme(
-      selectedTabIconColor: MyTheme.accent,
-      unSelectedTabIconColor: Color.fromARGB(255, 162, 203, 241),
-      selectedTextColor: Colors.black,
-      unSelectedTextColor: Color.fromARGB(255, 112, 112, 112),
-      selectedIconColor: Color.fromARGB(255, 26, 26, 26),
-      unSelectedIconColor: Color.fromARGB(255, 96, 96, 96),
-      dividerColor: Color.fromARGB(255, 238, 238, 238),
-      hoverColor: Colors.white54,
-      closeHoverColor: Colors.white,
-      selectedTabBackgroundColor: Colors.white54);
+  // IW: tab strip of the IncorrectWeb apps (IwPalette): ink on the selected tab, muted otherwise
+  static final light = TabbarTheme(
+      selectedTabIconColor: IwPalette.light.orange,
+      unSelectedTabIconColor: IwPalette.light.dim,
+      selectedTextColor: IwPalette.light.ink,
+      unSelectedTextColor: IwPalette.light.muted,
+      selectedIconColor: IwPalette.light.ink,
+      unSelectedIconColor: IwPalette.light.muted,
+      dividerColor: IwPalette.light.line2,
+      hoverColor: IwPalette.light.panelHover,
+      closeHoverColor: IwPalette.light.panel,
+      selectedTabBackgroundColor: IwPalette.light.panel);
 
-  static const dark = TabbarTheme(
-      selectedTabIconColor: MyTheme.accent,
-      unSelectedTabIconColor: Color.fromARGB(255, 30, 65, 98),
-      selectedTextColor: Colors.white,
-      unSelectedTextColor: Color.fromARGB(255, 192, 192, 192),
-      selectedIconColor: Color.fromARGB(255, 192, 192, 192),
-      unSelectedIconColor: Color.fromARGB(255, 255, 255, 255),
-      dividerColor: Color.fromARGB(255, 64, 64, 64),
-      hoverColor: Colors.black26,
-      closeHoverColor: Colors.black,
-      selectedTabBackgroundColor: Colors.black26);
+  static final dark = TabbarTheme(
+      selectedTabIconColor: IwPalette.dark.orange,
+      unSelectedTabIconColor: IwPalette.dark.dim,
+      selectedTextColor: IwPalette.dark.ink,
+      unSelectedTextColor: IwPalette.dark.muted,
+      selectedIconColor: IwPalette.dark.ink,
+      unSelectedIconColor: IwPalette.dark.muted,
+      dividerColor: IwPalette.dark.line2,
+      hoverColor: IwPalette.dark.panelHover,
+      closeHoverColor: IwPalette.dark.panel,
+      selectedTabBackgroundColor: IwPalette.dark.panel);
 
   @override
   ThemeExtension<TabbarTheme> copyWith({

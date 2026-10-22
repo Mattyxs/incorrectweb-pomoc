@@ -27,11 +27,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
 
-const double _kTabWidth = 200;
+const double _kTabWidth = 220;
 const double _kTabHeight = 42;
 const double _kCardFixedWidth = 540;
-const double _kCardLeftMargin = 15;
-const double _kContentHMargin = 15;
+const double _kCardLeftMargin = 20;
+const double _kContentHMargin = 18;
 const double _kContentHSubMargin = _kContentHMargin + 33;
 const double _kCheckBoxLeftMargin = 10;
 const double _kRadioLeftMargin = 10;
@@ -301,10 +301,10 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
               ],
             ),
           ),
-          const VerticalDivider(width: 1),
+          VerticalDivider(width: 1, color: IwPalette.of(context).line2),
           Expanded(
             child: Container(
-              color: Theme.of(context).scaffoldBackgroundColor,
+              color: IwPalette.of(context).bg, // IW
               child: PageView(
                 controller: controller,
                 physics: NeverScrollableScrollPhysics(),
@@ -318,13 +318,15 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   }
 
   Widget _header(BuildContext context) {
+    // IW: `.set-nav h1`
     final settingsText = Text(
       translate('Settings'),
       textAlign: TextAlign.left,
-      style: const TextStyle(
-        color: _accentColor,
+      style: TextStyle(
+        color: IwPalette.of(context).ink,
         fontSize: _kTitleFontSize,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.3,
       ),
     );
     return Row(
@@ -364,42 +366,57 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     );
   }
 
+  // IW: `.set-nav .side-item`: violet-soft pill with the orange bar for the selected page
   Widget _listItem({required _TabInfo tab}) {
     return Obx(() {
       bool selected = tab.key == selectedTab.value;
-      return SizedBox(
-        width: _kTabWidth,
-        height: _kTabHeight,
-        child: InkWell(
-          onTap: () {
-            if (selectedTab.value != tab.key) {
-              int index = DesktopSettingPage.tabKeys.indexOf(tab.key);
-              if (index == -1) {
-                return;
+      final p = IwPalette.of(context);
+      final color = selected ? p.accentInk : p.muted;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
+        child: Material(
+          color: selected ? p.violetSoft : Colors.transparent,
+          borderRadius: BorderRadius.circular(kIwRadiusSm),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            hoverColor: p.panelHover,
+            focusColor: p.focus.withOpacity(0.18),
+            onTap: () {
+              if (selectedTab.value != tab.key) {
+                int index = DesktopSettingPage.tabKeys.indexOf(tab.key);
+                if (index == -1) {
+                  return;
+                }
+                controller.jumpToPage(index);
               }
-              controller.jumpToPage(index);
-            }
-            selectedTab.value = tab.key;
-          },
-          child: Row(children: [
-            Container(
-              width: 4,
-              height: _kTabHeight * 0.7,
-              color: selected ? _accentColor : null,
+              selectedTab.value = tab.key;
+            },
+            child: SizedBox(
+              height: 40,
+              child: Row(children: [
+                Container(
+                  width: 4,
+                  height: 40,
+                  color: selected ? p.orange : Colors.transparent,
+                ),
+                Icon(
+                  selected ? tab.selected : tab.unselected,
+                  color: color,
+                  size: 19,
+                ).marginOnly(left: 10, right: 10),
+                Expanded(
+                  child: Text(
+                    translate(tab.label),
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: selected ? p.accentInk : p.ink2,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                        fontSize: 14),
+                  ),
+                ),
+              ]),
             ),
-            Icon(
-              selected ? tab.selected : tab.unselected,
-              color: selected ? _accentColor : null,
-              size: 20,
-            ).marginOnly(left: 13, right: 10),
-            Text(
-              translate(tab.label),
-              style: TextStyle(
-                  color: selected ? _accentColor : null,
-                  fontWeight: FontWeight.w400,
-                  fontSize: _kContentFontSize),
-            ),
-          ]),
+          ),
         ),
       );
     });
@@ -2441,31 +2458,13 @@ class _AboutState extends State<_About> {
       return SingleChildScrollView(
         controller: scrollController,
         child: _Card(title: 'O programie', children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(
-                height: 8.0,
-              ),
-              SelectionArea(
-                  child: Text('${translate('Version')}: $version')
-                      .marginSymmetric(vertical: 4.0)),
-              SelectionArea(
-                  child: Text('${translate('Build Date')}: $buildDate')
-                      .marginSymmetric(vertical: 4.0)),
-              if (!isWeb)
-                SelectionArea(
-                    child: Text('${translate('Fingerprint')}: $fingerprint')
-                        .marginSymmetric(vertical: 4.0)),
-              const SizedBox(height: 8.0),
-              iwAboutBlock().marginSymmetric(vertical: 4.0),
-              SelectionArea(
-                  child: Text(
-                'Copyright © Purslane Tech Pte. Ltd. (RustDesk)\n$license',
-                style: const TextStyle(fontSize: 12),
-              ).marginSymmetric(vertical: 8.0)),
-            ],
-          ).marginOnly(left: _kContentHMargin)
+          // IW: brand, version, license and origin (AGPL-3.0, based on RustDesk)
+          iwAboutBlock(context,
+                  version: version,
+                  buildDate: buildDate,
+                  fingerprint: isWeb ? '' : fingerprint,
+                  license: license)
+              .marginOnly(left: _kContentHMargin, top: 4),
         ]),
       );
     });
@@ -2481,32 +2480,44 @@ Widget _Card(
     {required String title,
     required List<Widget> children,
     List<Widget>? title_suffix}) {
+  // IW: white card of the IncorrectWeb apps (hairline, radius 14, soft shadow)
   return Row(
     children: [
       Flexible(
         child: SizedBox(
           width: _kCardFixedWidth,
-          child: Card(
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                        child: Text(
-                      translate(title),
-                      textAlign: TextAlign.start,
-                      style: const TextStyle(
-                        fontSize: _kTitleFontSize,
-                      ),
-                    )),
-                    ...?title_suffix
-                  ],
-                ).marginOnly(left: _kContentHMargin, top: 10, bottom: 10),
-                ...children
-                    .map((e) => e.marginOnly(top: 4, right: _kContentHMargin)),
-              ],
-            ).marginOnly(bottom: 10),
-          ).marginOnly(left: _kCardLeftMargin, top: 15),
+          child: Builder(builder: (context) {
+            final p = IwPalette.of(context);
+            return Container(
+              decoration: BoxDecoration(
+                color: p.panel,
+                borderRadius: BorderRadius.circular(kIwRadius),
+                border: Border.all(color: p.line),
+                boxShadow: p.cardShadow,
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                          child: Text(
+                        translate(title),
+                        textAlign: TextAlign.start,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: p.ink,
+                        ),
+                      )),
+                      ...?title_suffix
+                    ],
+                  ).marginOnly(left: _kContentHMargin, top: 14, bottom: 8),
+                  ...children.map(
+                      (e) => e.marginOnly(top: 4, right: _kContentHMargin)),
+                ],
+              ).marginOnly(bottom: 12),
+            );
+          }).marginOnly(left: 20, top: 16),
         ),
       ),
     ],

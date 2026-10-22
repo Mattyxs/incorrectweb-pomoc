@@ -194,7 +194,7 @@ class ConnectionManagerState extends State<ConnectionManager>
               showClose: true,
               onWindowCloseButton: handleWindowCloseButton,
               controller: serverModel.tabController,
-              selectedBorderColor: MyTheme.accent,
+              selectedBorderColor: IwPalette.of(context).orange, // IW
               maxLabelWidth: 100,
               tail: null, //buildScrollJumper(),
               tabBuilder: (key, icon, label, themeConf) {
@@ -442,24 +442,18 @@ class _CmHeaderState extends State<_CmHeader>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // IW: the dark violet of the side column of the IncorrectWeb apps
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10.0),
-        gradient: LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [
-            Color(0xff6a3aa8), // IW: brand colors
-            Color(0xff431c77),
-          ],
-        ),
+        borderRadius: BorderRadius.circular(kIwRadius),
+        color: IwPalette.of(context).side,
       ),
-      margin: EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
+      margin: EdgeInsets.symmetric(horizontal: 5.0, vertical: 8.0),
       padding: EdgeInsets.only(
-        top: 10.0,
-        bottom: 10.0,
-        left: 10.0,
-        right: 5.0,
+        top: 12.0,
+        bottom: 12.0,
+        left: 12.0,
+        right: 6.0,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -483,8 +477,11 @@ class _CmHeaderState extends State<_CmHeader>
                 )),
                 FittedBox(
                   child: Text(
-                    "(${client.peerId})",
-                    style: TextStyle(color: Colors.white, fontSize: 14),
+                    client.peerId, // IW: number in tabular digits
+                    style: TextStyle(
+                        color: IwPalette.of(context).sideMuted,
+                        fontSize: 14,
+                        fontFeatures: kIwTabular),
                   ),
                 ),
                 if (client.type_() == ClientType.terminal)
@@ -533,7 +530,9 @@ class _CmHeaderState extends State<_CmHeader>
                           formatDurationToTime(
                             Duration(seconds: _time.value),
                           ),
-                          style: TextStyle(color: Colors.white),
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontFeatures: kIwTabular), // IW
                         ),
                       )
                   ],
@@ -572,28 +571,29 @@ class _CmHeaderState extends State<_CmHeader>
   Widget _buildClientAvatar() {
     return buildAvatarWidget(
           avatar: client.avatar,
-          size: 70,
-          borderRadius: 15,
+          size: 64,
+          borderRadius: 14,
           fallback: _buildInitialAvatar(),
         ) ??
         _buildInitialAvatar();
   }
 
   Widget _buildInitialAvatar() {
+    // IW: initial on the accent (`.side-avatar`)
     return Container(
-      width: 70,
-      height: 70,
+      width: 64,
+      height: 64,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: str2color(client.name),
-        borderRadius: BorderRadius.circular(15.0),
+        color: IwPalette.of(context).orange,
+        borderRadius: BorderRadius.circular(14.0),
       ),
       child: Text(
-        client.name.isNotEmpty ? client.name[0] : '?',
+        client.name.isNotEmpty ? client.name[0].toUpperCase() : '?',
         style: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-          fontSize: 55,
+          fontWeight: FontWeight.w700,
+          color: IwPalette.of(context).onOrange,
+          fontSize: 30,
         ),
       ),
     );
@@ -617,12 +617,17 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
     return Tooltip(
       message: "$tooltipText: ${enabled ? "ON" : "OFF"}",
       waitDuration: Duration.zero,
+      // IW: on = brand fill with a white icon, off = soft tile with a muted icon
       child: Container(
         decoration: BoxDecoration(
           color: enabled
-              ? (canModify ? MyTheme.accent : MyTheme.accent.withOpacity(0.6))
-              : Colors.grey[700],
-          borderRadius: BorderRadius.circular(10.0),
+              ? (canModify
+                  ? IwPalette.of(context).brand
+                  : IwPalette.of(context).brand.withOpacity(0.6))
+              : IwPalette.of(context).soft,
+          border: Border.all(
+              color: enabled ? Colors.transparent : IwPalette.of(context).line2),
+          borderRadius: BorderRadius.circular(kIwRadiusSm),
         ),
         padding: EdgeInsets.all(8.0),
         child: InkWell(
@@ -636,7 +641,7 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
               Expanded(
                 child: Icon(
                   iconData,
-                  color: Colors.white,
+                  color: enabled ? Colors.white : IwPalette.of(context).muted,
                 ),
               ),
             ],
@@ -657,25 +662,23 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
       width: double.infinity,
       height: 160.0,
       margin: EdgeInsets.all(5.0),
-      padding: EdgeInsets.all(5.0),
+      padding: EdgeInsets.all(8.0),
+      // IW: white card
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10.0),
-        color: Theme.of(context).colorScheme.background,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            spreadRadius: 1,
-            blurRadius: 1,
-            offset: Offset(0, 1.5),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(kIwRadius),
+        color: IwPalette.of(context).panel,
+        border: Border.all(color: IwPalette.of(context).line),
+        boxShadow: IwPalette.of(context).cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             translate("Permissions"),
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: IwPalette.of(context).ink),
             textAlign: TextAlign.center,
           ).marginOnly(left: 4.0, bottom: 8.0),
           Expanded(
@@ -881,7 +884,7 @@ class _CmControlPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: buildButton(context,
-                    color: MyTheme.accent,
+                    color: IwPalette.of(context).brand, // IW
                     onClick: null, onTapDown: (details) async {
                   final devicesInfo =
                       await AudioInput.getDevicesInfo(true, true);
@@ -967,7 +970,7 @@ class _CmControlPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: buildButton(context,
-                    color: MyTheme.accent,
+                    color: IwPalette.of(context).brand, // IW
                     onClick: () => handleVoiceCall(true),
                     icon: Icon(
                       Icons.call_rounded,
@@ -1007,7 +1010,7 @@ class _CmControlPanel extends StatelessWidget {
           offstage: !showElevation,
           child: buildButton(
             context,
-            color: MyTheme.accent,
+            color: IwPalette.of(context).brand, // IW
             onClick: () {
               handleElevate(context);
               windowManager.minimize();
@@ -1025,15 +1028,15 @@ class _CmControlPanel extends StatelessWidget {
           children: [
             Expanded(
               child: buildButton(context,
-                  color: Colors.redAccent,
+                  color: IwPalette.of(context).dangerSoft, // IW
                   onClick: handleDisconnect,
                   text: 'Disconnect',
                   icon: Icon(
                     Icons.link_off_rounded,
-                    color: Colors.white,
-                    size: 14,
+                    color: IwPalette.of(context).dangerInk,
+                    size: 16,
                   ),
-                  textColor: Colors.white),
+                  textColor: IwPalette.of(context).dangerInk),
             ),
           ],
         )
@@ -1047,7 +1050,7 @@ class _CmControlPanel extends StatelessWidget {
       children: [
         Expanded(
             child: buildButton(context,
-                color: MyTheme.accent,
+                color: IwPalette.of(context).brand, // IW
                 onClick: handleClose,
                 text: 'Close',
                 textColor: Colors.white)),
@@ -1068,7 +1071,8 @@ class _CmControlPanel extends StatelessWidget {
         // IW: "Accept and Elevate" is only for a verified person
         Offstage(
           offstage: !showElevation || !showAccept || !client.iwVerified,
-          child: buildButton(context, color: Colors.green[700], onClick: () {
+          child: buildButton(context, color: IwPalette.of(context).brand,
+              onClick: () {
             handleAccept(context);
             handleElevate(context);
             windowManager.minimize();
@@ -1092,16 +1096,21 @@ class _CmControlPanel extends StatelessWidget {
                     // IW: an unknown person can be allowed only after 3 seconds
                     IwCountdown(
                       seconds: client.iwVerified ? 0 : 3,
+                      // IW: the main action is orange; grey while the countdown runs
                       builder: (context, left) => buildButton(
                         context,
-                        color: left > 0 ? Colors.grey : MyTheme.accent,
+                        color: left > 0
+                            ? IwPalette.of(context).line2
+                            : IwPalette.of(context).orange,
                         onClick: () {
                           if (left > 0) return;
                           handleAccept(context);
                           windowManager.minimize();
                         },
                         text: left > 0 ? 'Pozwól ($left)' : 'Pozwól',
-                        textColor: Colors.white,
+                        textColor: left > 0
+                            ? IwPalette.of(context).muted
+                            : IwPalette.of(context).onOrange,
                       ),
                     ),
                   ],
@@ -1110,11 +1119,11 @@ class _CmControlPanel extends StatelessWidget {
             Expanded(
               child: buildButton(
                 context,
-                color: Colors.transparent,
-                border: Border.all(color: Colors.grey),
+                color: IwPalette.of(context).panel,
+                border: Border.all(color: IwPalette.of(context).line2),
                 onClick: handleDisconnect,
                 text: 'Odrzuć',
-                textColor: null,
+                textColor: IwPalette.of(context).ink,
               ),
             ),
           ],
@@ -1137,21 +1146,21 @@ class _CmControlPanel extends StatelessWidget {
     if (icon != null) {
       textWidget = Text(
         translate(text),
-        style: TextStyle(color: textColor),
+        style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
         textAlign: TextAlign.center,
       );
     } else {
       textWidget = Expanded(
         child: Text(
           translate(text),
-          style: TextStyle(color: textColor),
+          style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
       );
     }
-    final borderRadius = BorderRadius.circular(10.0);
+    final borderRadius = BorderRadius.circular(kIwRadiusSm);
     final btn = Container(
-      height: 28,
+      height: 36, // IW
       decoration: BoxDecoration(
           color: color, borderRadius: borderRadius, border: border),
       child: InkWell(

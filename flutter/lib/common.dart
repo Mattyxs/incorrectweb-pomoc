@@ -47,7 +47,7 @@ import 'package:flutter_hbb/native/win32.dart'
 import 'package:flutter_hbb/native/common.dart'
     if (dart.library.html) 'package:flutter_hbb/web/common.dart';
 import 'package:flutter_hbb/utils/http_service.dart' as http;
-import 'package:flutter_hbb/iw/iw_brand.dart'; // IW: brand constants
+import 'package:flutter_hbb/iw/iw_tokens.dart'; // IW: design tokens
 
 final globalKey = GlobalKey<NavigatorState>();
 final navigationBarKey = GlobalKey();
@@ -170,32 +170,33 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
   final Color? toastText;
   final Color? divider;
 
+  // IW: values from the IncorrectWeb tokens (IwPalette)
   static final light = ColorThemeExtension(
-    border: Color(0xFFCCCCCC),
+    border: IwPalette.light.line2,
     border2: Color(0xFFBBBBBB),
-    border3: Colors.black26,
-    highlight: Color(0xFFF1ECF8), // IW: soft violet
-    drag_indicator: Colors.grey[800],
-    shadow: Colors.black,
-    errorBannerBg: Color(0xFFFDEEEB),
-    me: Colors.green,
-    toastBg: Colors.black.withOpacity(0.6),
+    border3: IwPalette.light.line2,
+    highlight: IwPalette.light.violetSoft,
+    drag_indicator: IwPalette.light.muted,
+    shadow: IwPalette.light.shadow,
+    errorBannerBg: IwPalette.light.dangerSoft,
+    me: IwPalette.light.ok,
+    toastBg: IwPalette.light.side.withOpacity(0.92),
     toastText: Colors.white,
-    divider: Colors.black38,
+    divider: IwPalette.light.line2,
   );
 
   static final dark = ColorThemeExtension(
-    border: Color(0xFF555555),
+    border: IwPalette.dark.line2,
     border2: Color(0xFFE5E5E5),
-    border3: Colors.white24,
-    highlight: Color(0xFF2A1D3D), // IW: soft violet
-    drag_indicator: Colors.grey,
-    shadow: Colors.grey,
-    errorBannerBg: Color(0xFF470F2D),
-    me: Colors.greenAccent,
-    toastBg: Colors.white.withOpacity(0.6),
-    toastText: Colors.black,
-    divider: Colors.white38,
+    border3: IwPalette.dark.line2,
+    highlight: IwPalette.dark.violetSoft,
+    drag_indicator: IwPalette.dark.muted,
+    shadow: Colors.black,
+    errorBannerBg: IwPalette.dark.dangerSoft,
+    me: IwPalette.dark.ok,
+    toastBg: IwPalette.dark.ink.withOpacity(0.92),
+    toastText: IwPalette.dark.bg,
+    divider: IwPalette.dark.line2,
   );
 
   @override
@@ -374,216 +375,238 @@ class MyTheme {
     }),
   );
 
-  static ThemeData lightTheme = ThemeData(
-    // https://stackoverflow.com/questions/77537315/after-upgrading-to-flutter-3-16-the-app-bar-background-color-button-size-and
-    useMaterial3: false,
-    fontFamily: 'Onest', // IW: font in the package
-    brightness: Brightness.light,
-    hoverColor: Color.fromARGB(255, 224, 224, 224),
-    scaffoldBackgroundColor: Colors.white,
-    dialogBackgroundColor: Colors.white,
-    appBarTheme: AppBarTheme(
-      shadowColor: Colors.transparent,
-    ),
-    dialogTheme: DialogTheme(
-      elevation: 15,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18.0),
-        side: BorderSide(
-          width: 1,
-          color: grayBg,
-        ),
-      ),
-    ),
-    scrollbarTheme: scrollbarTheme,
-    inputDecorationTheme: isDesktop
-        ? InputDecorationTheme(
-            fillColor: grayBg,
-            filled: true,
-            isDense: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          )
-        : null,
-    textTheme: const TextTheme(
-        titleLarge: TextStyle(fontSize: 19, color: Colors.black87),
-        titleSmall: TextStyle(fontSize: 14, color: Colors.black87),
-        bodySmall: TextStyle(fontSize: 12, color: Colors.black87, height: 1.25),
-        bodyMedium:
-            TextStyle(fontSize: 14, color: Colors.black87, height: 1.25),
-        labelLarge: TextStyle(fontSize: 16.0, color: MyTheme.accent80)),
-    cardColor: grayBg,
-    hintColor: Color(0xFFAAAAAA),
-    visualDensity: VisualDensity.adaptivePlatformDensity,
-    tabBarTheme: const TabBarTheme(
-      labelColor: Colors.black87,
-    ),
-    tooltipTheme: tooltipTheme(),
-    splashColor: (isDesktop || isWebDesktop) ? Colors.transparent : null,
-    highlightColor: (isDesktop || isWebDesktop) ? Colors.transparent : null,
-    splashFactory: (isDesktop || isWebDesktop) ? NoSplash.splashFactory : null,
-    textButtonTheme: (isDesktop || isWebDesktop)
-        ? TextButtonThemeData(
-            style: TextButton.styleFrom(
-              splashFactory: NoSplash.splashFactory,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18.0),
-              ),
-            ),
-          )
-        : mobileTextButtonTheme,
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: MyTheme.accent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        backgroundColor: grayBg,
-        foregroundColor: Colors.black87,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-      ),
-    ),
-    switchTheme: switchTheme(),
-    radioTheme: radioTheme(),
-    checkboxTheme: checkboxTheme,
-    listTileTheme: listTileTheme,
-    menuBarTheme: MenuBarThemeData(
-        style:
-            MenuStyle(backgroundColor: MaterialStatePropertyAll(Colors.white))),
-    colorScheme: ColorScheme.light(
-        primary: kIwViolet, // IW: brand
-        secondary: accent,
-        background: grayBg),
-    popupMenuTheme: PopupMenuThemeData(
-        color: Colors.white,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(
-              color: (isDesktop || isWebDesktop)
-                  ? Color(0xFFECECEC)
-                  : Colors.transparent),
-          borderRadius: BorderRadius.all(Radius.circular(8.0)),
-        )),
-  ).copyWith(
+  // IW: both themes are built from the IncorrectWeb tokens (lib/iw/iw_tokens.dart, = theme.css of
+  // incorrectus-platform): lavender page, white cards, violet controls, Onest.
+  static ThemeData lightTheme = _iwTheme(IwPalette.lightBranded).copyWith(
     extensions: <ThemeExtension<dynamic>>[
       ColorThemeExtension.light,
       TabbarTheme.light,
     ],
   );
-  static ThemeData darkTheme = ThemeData(
-    useMaterial3: false,
-    fontFamily: 'Onest', // IW: font in the package
-    brightness: Brightness.dark,
-    hoverColor: Color.fromARGB(255, 45, 46, 53),
-    scaffoldBackgroundColor: Color(0xFF18191E),
-    dialogBackgroundColor: Color(0xFF18191E),
-    appBarTheme: AppBarTheme(
-      shadowColor: Colors.transparent,
-    ),
-    dialogTheme: DialogTheme(
-      elevation: 15,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18.0),
-        side: BorderSide(
-          width: 1,
-          color: Color(0xFF24252B),
-        ),
-      ),
-    ),
-    scrollbarTheme: scrollbarThemeDark,
-    inputDecorationTheme: (isDesktop || isWebDesktop)
-        ? InputDecorationTheme(
-            fillColor: Color(0xFF24252B),
-            filled: true,
-            isDense: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          )
-        : null,
-    textTheme: const TextTheme(
-      titleLarge: TextStyle(fontSize: 19),
-      titleSmall: TextStyle(fontSize: 14),
-      bodySmall: TextStyle(fontSize: 12, height: 1.25),
-      bodyMedium: TextStyle(fontSize: 14, height: 1.25),
-      labelLarge: TextStyle(
-        fontSize: 16.0,
-        fontWeight: FontWeight.bold,
-        color: accent80,
-      ),
-    ),
-    cardColor: Color(0xFF24252B),
-    visualDensity: VisualDensity.adaptivePlatformDensity,
-    tabBarTheme: const TabBarTheme(
-      labelColor: Colors.white70,
-    ),
-    tooltipTheme: tooltipTheme(),
-    splashColor: (isDesktop || isWebDesktop) ? Colors.transparent : null,
-    highlightColor: (isDesktop || isWebDesktop) ? Colors.transparent : null,
-    splashFactory: (isDesktop || isWebDesktop) ? NoSplash.splashFactory : null,
-    textButtonTheme: (isDesktop || isWebDesktop)
-        ? TextButtonThemeData(
-            style: TextButton.styleFrom(
-              splashFactory: NoSplash.splashFactory,
-              disabledForegroundColor: Colors.white70,
-              foregroundColor: Colors.white70,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18.0),
-              ),
-            ),
-          )
-        : mobileTextButtonTheme,
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: MyTheme.accent,
-        foregroundColor: Colors.white,
-        disabledForegroundColor: Colors.white70,
-        disabledBackgroundColor: Colors.white10,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        backgroundColor: Color(0xFF24252B),
-        side: BorderSide(color: Colors.white12, width: 0.5),
-        disabledForegroundColor: Colors.white70,
-        foregroundColor: Colors.white70,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-      ),
-    ),
-    switchTheme: switchTheme(),
-    radioTheme: radioTheme(),
-    checkboxTheme: checkboxTheme,
-    listTileTheme: listTileTheme,
-    menuBarTheme: MenuBarThemeData(
-        style: MenuStyle(
-            backgroundColor: MaterialStatePropertyAll(Color(0xFF121212)))),
-    colorScheme: ColorScheme.dark(
-      primary: kIwVioletOnDark, // IW: brand, readable on dark
-      secondary: kIwVioletOnDark,
-      background: Color(0xFF24252B),
-    ),
-    popupMenuTheme: PopupMenuThemeData(
-        shape: RoundedRectangleBorder(
-      side: BorderSide(color: Colors.white24),
-      borderRadius: BorderRadius.all(Radius.circular(8.0)),
-    )),
-  ).copyWith(
+  static ThemeData darkTheme = _iwTheme(IwPalette.darkBranded).copyWith(
     extensions: <ThemeExtension<dynamic>>[
       ColorThemeExtension.dark,
       TabbarTheme.dark,
     ],
   );
+
+  static ThemeData _iwTheme(IwPalette p) {
+    final desktop = isDesktop || isWebDesktop;
+    final isDark = p.brightness == Brightness.dark;
+    final onViolet = isDark ? p.bg : Colors.white;
+    MaterialStateProperty<Color?> selected(Color on, Color? off) =>
+        MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.disabled)) {
+            return states.contains(MaterialState.selected)
+                ? on.withOpacity(0.4)
+                : off?.withOpacity(0.5);
+          }
+          return states.contains(MaterialState.selected) ? on : off;
+        });
+    final radius10 = RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kIwRadiusSm));
+    return ThemeData(
+      // https://stackoverflow.com/questions/77537315/after-upgrading-to-flutter-3-16-the-app-bar-background-color-button-size-and
+      useMaterial3: false,
+      fontFamily: 'Onest', // IW: font in the package
+      brightness: p.brightness,
+      hoverColor: p.panelHover,
+      focusColor: p.violet.withOpacity(0.12),
+      scaffoldBackgroundColor: p.bg,
+      canvasColor: p.panel,
+      dialogBackgroundColor: p.panel,
+      dividerColor: p.line2,
+      dividerTheme: DividerThemeData(color: p.line2),
+      appBarTheme: AppBarTheme(
+        shadowColor: Colors.transparent,
+      ),
+      dialogTheme: DialogTheme(
+        elevation: 12,
+        backgroundColor: p.panel,
+        shadowColor: p.shadow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kIwRadiusLg),
+          side: BorderSide(width: 1, color: p.line),
+        ),
+      ),
+      scrollbarTheme: ScrollbarThemeData(
+        thickness: MaterialStateProperty.all(6),
+        radius: const Radius.circular(3),
+        thumbColor: MaterialStateProperty.resolveWith<Color?>((states) =>
+            states.contains(MaterialState.dragged) ||
+                    states.contains(MaterialState.hovered)
+                ? p.muted
+                : p.line2),
+        crossAxisMargin: 4,
+      ),
+      inputDecorationTheme: desktop
+          ? InputDecorationTheme(
+              fillColor: p.field,
+              filled: true,
+              isDense: true,
+              hintStyle: TextStyle(color: p.dim),
+              labelStyle: TextStyle(color: p.muted),
+              floatingLabelStyle: TextStyle(color: p.violet),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: p.line2),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: p.line2),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: p.violet, width: 1.5),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: p.danger),
+              ),
+            )
+          : null,
+      textTheme: TextTheme(
+          titleLarge: TextStyle(
+              fontSize: 19, fontWeight: FontWeight.w600, color: p.ink),
+          titleSmall: TextStyle(fontSize: 14, color: p.ink),
+          bodySmall: TextStyle(fontSize: 12, color: p.muted, height: 1.35),
+          bodyMedium: TextStyle(fontSize: 14, color: p.ink, height: 1.3),
+          bodyLarge: TextStyle(color: p.ink),
+          labelLarge: TextStyle(
+              fontSize: 16.0, fontWeight: FontWeight.w600, color: p.accentInk)),
+      iconTheme: IconThemeData(color: p.ink2),
+      cardColor: p.panel,
+      cardTheme: CardTheme(
+        color: p.panel,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(kIwRadius)),
+      ),
+      hintColor: p.dim,
+      visualDensity: VisualDensity.adaptivePlatformDensity,
+      tabBarTheme: TabBarTheme(
+        labelColor: p.ink,
+        unselectedLabelColor: p.muted,
+        indicatorColor: p.orange,
+      ),
+      tooltipTheme: TooltipThemeData(
+        waitDuration: Duration(seconds: 1, milliseconds: 500),
+        decoration: BoxDecoration(
+          color: isDark ? p.ink : p.side,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        textStyle: TextStyle(
+            fontFamily: 'Onest',
+            fontSize: 12,
+            color: isDark ? p.bg : Colors.white),
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: p.violet,
+        selectionColor: p.violet.withOpacity(0.25),
+        selectionHandleColor: p.violet,
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: p.violet),
+      splashColor: desktop ? Colors.transparent : null,
+      highlightColor: desktop ? Colors.transparent : null,
+      splashFactory: desktop ? NoSplash.splashFactory : null,
+      textButtonTheme: desktop
+          ? TextButtonThemeData(
+              style: TextButton.styleFrom(
+                splashFactory: NoSplash.splashFactory,
+                foregroundColor: p.accentInk,
+                disabledForegroundColor: p.dim,
+                textStyle: const TextStyle(
+                    fontFamily: 'Onest', fontWeight: FontWeight.w600),
+                shape: radius10,
+              ),
+            )
+          : mobileTextButtonTheme,
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: p.brand,
+          foregroundColor: Colors.white,
+          disabledForegroundColor: p.dim,
+          disabledBackgroundColor: p.line2,
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          textStyle:
+              const TextStyle(fontFamily: 'Onest', fontWeight: FontWeight.w600),
+          shape: radius10,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: p.panel,
+          foregroundColor: p.ink,
+          disabledForegroundColor: p.dim,
+          side: BorderSide(color: p.line2),
+          textStyle:
+              const TextStyle(fontFamily: 'Onest', fontWeight: FontWeight.w500),
+          shape: radius10,
+        ),
+      ),
+      switchTheme: SwitchThemeData(
+        splashRadius: desktop ? 0 : kRadialReactionRadius,
+        thumbColor: selected(isDark ? p.violet : Colors.white, p.panel),
+        trackColor: selected(isDark ? p.violetSoft : p.violet, p.line2),
+        trackOutlineColor: MaterialStatePropertyAll(Colors.transparent),
+      ),
+      radioTheme: RadioThemeData(
+        splashRadius: desktop ? 0 : kRadialReactionRadius,
+        fillColor: selected(p.violet, p.muted),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        splashRadius: 0,
+        fillColor: selected(p.violet, Colors.transparent),
+        checkColor: MaterialStatePropertyAll(onViolet),
+        side: BorderSide(color: p.muted, width: 1.5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(5)),
+        ),
+      ),
+      listTileTheme: listTileTheme,
+      menuBarTheme: MenuBarThemeData(
+          style: MenuStyle(backgroundColor: MaterialStatePropertyAll(p.panel))),
+      menuTheme: MenuThemeData(
+          style: MenuStyle(
+        backgroundColor: MaterialStatePropertyAll(p.panel),
+        surfaceTintColor: MaterialStatePropertyAll(Colors.transparent),
+        shape: MaterialStatePropertyAll(RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: p.line2))),
+      )),
+      colorScheme: isDark
+          ? ColorScheme.dark(
+              primary: p.violet, // IW: brand, readable on dark
+              onPrimary: onViolet,
+              secondary: p.violet,
+              onSecondary: onViolet,
+              background: p.bg,
+              surface: p.panel,
+              onSurface: p.ink,
+              error: p.danger,
+            )
+          : ColorScheme.light(
+              primary: p.violet, // IW: brand
+              onPrimary: onViolet,
+              secondary: p.violet,
+              onSecondary: onViolet,
+              background: p.bg,
+              surface: p.panel,
+              onSurface: p.ink,
+              error: p.danger,
+            ),
+      popupMenuTheme: PopupMenuThemeData(
+          color: p.panel,
+          elevation: 8,
+          shadowColor: p.shadow,
+          textStyle: TextStyle(fontFamily: 'Onest', color: p.ink),
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: desktop ? p.line2 : Colors.transparent),
+            borderRadius: BorderRadius.all(Radius.circular(12.0)),
+          )),
+    );
+  }
 
   static ThemeMode getThemeModePreference() {
     return themeModeFromString(bind.mainGetLocalOption(key: kCommConfKeyTheme));
@@ -1715,7 +1738,7 @@ Future<bool> matchPeer(
 }
 
 /// Get the image for the current [platform].
-Widget getPlatformImage(String platform, {double size = 50}) {
+Widget getPlatformImage(String platform, {double size = 50, Color? color}) {
   if (platform.isEmpty) {
     return Container(width: size, height: size);
   }
@@ -1727,7 +1750,11 @@ Widget getPlatformImage(String platform, {double size = 50}) {
   } else {
     platform = platform.toLowerCase();
   }
-  return SvgPicture.asset('assets/$platform.svg', height: size, width: size);
+  return SvgPicture.asset('assets/$platform.svg',
+      height: size,
+      width: size,
+      colorFilter: // IW: optional tint (device tiles on violet-soft)
+          color == null ? null : ColorFilter.mode(color, BlendMode.srcIn));
 }
 
 class LastWindowPosition {
@@ -3755,29 +3782,8 @@ Color? disabledTextColor(BuildContext context, bool enabled) {
       : Theme.of(context).textTheme.titleLarge?.color?.withOpacity(0.6);
 }
 
-Widget loadPowered(BuildContext context) {
-  if (bind.mainGetBuildinOption(key: "hide-powered-by-me") == 'Y') {
-    return SizedBox.shrink();
-  }
-  return MouseRegion(
-    cursor: SystemMouseCursors.click,
-    child: GestureDetector(
-      onTap: () {
-        launchUrl(Uri.parse('https://rustdesk.com'));
-      },
-      child: Opacity(
-          opacity: 0.5,
-          child: Text(
-            translate("powered_by_me"),
-            overflow: TextOverflow.clip,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(fontSize: 9, decoration: TextDecoration.underline),
-          )),
-    ),
-  ).marginOnly(top: 6);
-}
+// IW: no "Powered by RustDesk" link to rustdesk.com; the origin is in "O programie"
+Widget loadPowered(BuildContext context) => const SizedBox.shrink();
 
 const _kDefaultLogoAsset = 'assets/logo.png';
 const _kLightLogoAsset = 'assets/logo_light.png';

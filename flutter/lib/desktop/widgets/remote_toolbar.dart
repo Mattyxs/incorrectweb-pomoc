@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/iw/iw_tokens.dart'; // IW
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
@@ -164,7 +165,7 @@ Alignment _alignmentForEdge(_ToolbarEdge edge, double fraction) {
 // The drag handle hangs off the side of the toolbar facing away from the
 // docked edge, so the icons themselves sit flush against that edge.
 BorderRadius _collapseHandleBorderRadius(_ToolbarEdge edge) {
-  const r = Radius.circular(5);
+  const r = Radius.circular(8); // IW
   switch (edge) {
     case _ToolbarEdge.top:
       return const BorderRadius.vertical(bottom: r);
@@ -326,14 +327,19 @@ class ToolbarState {
   }
 }
 
+// IW: the toolbar is a dark violet pill (the side column of the IncorrectWeb apps, `--side`
+// #2a1252) with slightly lighter chips; hover and active use `--violet` #5b2fc4, danger is red.
 class _ToolbarTheme {
-  static const Color blueColor = MyTheme.button;
-  static const Color hoverBlueColor = MyTheme.accent;
-  static Color inactiveColor = Colors.grey[800]!;
-  static Color hoverInactiveColor = Colors.grey[850]!;
+  static const Color blueColor = Color(0xFF3D2470);
+  static const Color hoverBlueColor = Color(0xFF5B2FC4);
+  static Color inactiveColor = const Color(0xFF2A1252);
+  static Color hoverInactiveColor = const Color(0xFF3D2470);
 
-  static const Color redColor = Colors.redAccent;
-  static const Color hoverRedColor = Colors.red;
+  static const Color redColor = Color(0xFFC0362C);
+  static const Color hoverRedColor = Color(0xFFD9473C);
+
+  static Color barColor(BuildContext context) => IwPalette.of(context).side;
+  static const Color barBorderColor = Color(0x1FFFFFFF);
   // kMinInteractiveDimension
   static const double height = 20.0;
   static const double dividerHeight = 12.0;
@@ -341,7 +347,7 @@ class _ToolbarTheme {
   static const double buttonSize = 32;
   static const double buttonHMargin = 2;
   static const double buttonVMargin = 6;
-  static const double iconRadius = 8;
+  static const double iconRadius = 9;
   static const double elevation = 3;
 
   static double dividerSpaceToAction = isWindows ? 8 : 14;
@@ -379,7 +385,7 @@ class _ToolbarTheme {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
-          color: borderColor(context),
+          color: barBorderColor, // IW
           width: 1,
         ),
         borderRadius: borderRadius,
@@ -854,7 +860,7 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
     }
     if (!isWeb) toolbarItems.add(_RecordMenu());
     toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));
-    final toolbarBorderRadius = BorderRadius.all(Radius.circular(4.0));
+    final toolbarBorderRadius = BorderRadius.all(Radius.circular(12.0)); // IW
     // innerAxis: how the toolbar icons themselves flow.
     // outerAxis: how the toolbar block and the handle stack against each other
     // (perpendicular to the dock edge, so the handle hangs off the interior face).
@@ -867,11 +873,7 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       elevation: _ToolbarTheme.elevation,
       shadowColor: MyTheme.color(context).shadow,
       borderRadius: toolbarBorderRadius,
-      color: Theme.of(context)
-          .menuBarTheme
-          .style
-          ?.backgroundColor
-          ?.resolve(MaterialState.values.toSet()),
+      color: _ToolbarTheme.barColor(context), // IW
       child: SingleChildScrollView(
         scrollDirection: innerAxis,
         child: Theme(
@@ -3291,7 +3293,7 @@ class _DraggableShowHideState extends State<_DraggableShowHide> {
         child: Icon(
           widget.isHorizontal ? Icons.drag_indicator : Icons.drag_handle,
           size: 20,
-          color: MyTheme.color(context).drag_indicator,
+          color: IwPalette.of(context).sideDim, // IW
         ),
         feedback: widget,
         onDragStarted: () {
@@ -3317,6 +3319,7 @@ class _DraggableShowHideState extends State<_DraggableShowHide> {
   @override
   Widget build(BuildContext context) {
     final ButtonStyle buttonStyle = ButtonStyle(
+      foregroundColor: MaterialStatePropertyAll(IwPalette.of(context).sideText), // IW
       minimumSize: MaterialStateProperty.all(const Size(0, 0)),
       padding: MaterialStateProperty.all(EdgeInsets.zero),
     );
@@ -3416,13 +3419,9 @@ class _DraggableShowHideState extends State<_DraggableShowHide> {
       data: TextButtonThemeData(style: buttonStyle),
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context)
-              .menuBarTheme
-              .style
-              ?.backgroundColor
-              ?.resolve(MaterialState.values.toSet()),
+          color: _ToolbarTheme.barColor(context), // IW
           border: Border.all(
-            color: _ToolbarTheme.borderColor(context),
+            color: _ToolbarTheme.barBorderColor,
             width: 1,
           ),
           borderRadius: widget.borderRadius,
@@ -3559,7 +3558,7 @@ class _MinimizedMonitorSwitchButton extends StatelessWidget {
               SvgPicture.asset(
                 'assets/display_switcher.svg',
                 colorFilter:
-                    ColorFilter.mode(_ToolbarTheme.blueColor, BlendMode.srcIn),
+                    ColorFilter.mode(_ToolbarTheme.hoverBlueColor, BlendMode.srcIn),
                 width: iconSize,
                 height: iconSize,
               ),

@@ -28,7 +28,11 @@ Every change is marked `// IW:` (Rust, Dart). Pure logic is in `src/iw/` and is 
 - `flutter/lib/desktop/widgets/tabbar_widget.dart`: product name instead of "RustDesk".
 - `flutter/lib/common.dart` (also brand colors, Onest, soft violet highlight), `desktop/pages/{server_page,desktop_home_page,desktop_setting_page}.dart`, `models/server_model.dart`: hooks into the widgets.
 - `flutter/macos/*`, `flutter/windows/runner/Runner.rc`, `build.py`: names, bundle id, URL scheme.
-- `res/*`, `flutter/assets/icon.svg`, `flutter/windows/runner/resources/app_icon.ico`: temporary logo.
+- `res/*`, `flutter/macos/Runner/AppIcon.icns`, `flutter/windows/runner/resources/app_icon.ico`, `flutter/assets/icon.png`: app icon of the IncorrectWeb apps (apps/desktop of incorrectus-platform); `flutter/assets/iw_logo.png`: Incorrectus logo (packages/ui). Both PNGs are force-added (`*png` is ignored).
+- `flutter/lib/iw/iw_brand.dart`: `IwBranding`, the one place for name, main and accent color, light/dark logo and app icon (Incorrectus defaults; `IwBranding.apply()` before runApp for the branding of the organization).
+- `flutter/lib/iw/iw_tokens.dart`, `flutter/test/iw_tokens_test.dart`: tokens of the IncorrectWeb apps (light and dark, = theme.css of incorrectus-platform), contrast tests, logo tile and app icon widgets.
+- Look of the IncorrectWeb apps: `common.dart` (both themes from one builder on the tokens), `desktop_home_page.dart` + `iw_widgets.dart` (dark column with brand, number and password, status, settings; organization screen, banners, consent card, "O programie" with license and origin), `connection_page.dart`, `peer_tab_page.dart`, `peer_card.dart`, `peer_tab_model.dart` (line icons), `desktop_setting_page.dart` (navigation and cards), `server_page.dart` (consent window), `remote_toolbar.dart` (dark violet toolbar), `tabbar_widget.dart`, `desktop_tab_page.dart`.
+- No links to rustdesk.com in the desktop UI (`common.dart` loadPowered, help cards, `install_page.dart` license link, `connection_page.dart`); guarded in `iw-tests/src/source_guard.rs`.
 - `.github/workflows/incorrectweb-build.yml`: build (RustDesk workflows removed), `flutter-tests` job before the release, read-only token for build jobs, Flutter engine and nasm pinned by SHA-256.
 - `src/lan.rs`: LAN discovery answers only after an explicit opt-in (default off).
 - `src/iw/{notify,scheme,policy}.rs`: notification commands without text in the script, rules for writing the `iwpomoc://` registration, safe defaults.

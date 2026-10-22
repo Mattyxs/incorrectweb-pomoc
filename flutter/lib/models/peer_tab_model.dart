@@ -30,12 +30,13 @@ class PeerTabModel with ChangeNotifier {
     'Address book',
     'Accessible devices',
   ];
+  // IW: line icons
   static const List<IconData> icons = [
-    Icons.access_time_filled,
-    Icons.star,
-    Icons.explore,
-    IconFont.addressBook,
-    IconFont.deviceGroupFill,
+    Icons.schedule_rounded,
+    Icons.star_outline_rounded,
+    Icons.explore_outlined,
+    Icons.contacts_outlined,
+    Icons.devices_outlined,
   ];
   List<bool> isEnabled = List.from([
     true,

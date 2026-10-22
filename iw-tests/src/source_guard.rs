@@ -120,11 +120,16 @@ fn no_rustdesk_title_in_tabbar() {
 fn theme_uses_incorrectus_brand_and_onest() {
     let common = repo_file("flutter/lib/common.dart");
     assert!(common.contains("0xFF431C77"), "MyTheme.accent must be the brand violet");
-    assert!(common.contains("fontFamily: 'Onest'"), "light and dark theme need fontFamily Onest");
-    assert_eq!(common.matches("fontFamily: 'Onest'").count(), 2, "both themes");
+    // both themes come from one builder on the IncorrectWeb tokens (flutter/lib/iw/iw_tokens.dart)
+    assert!(common.contains("_iwTheme(IwPalette.lightBranded)"), "light theme from the tokens");
+    assert!(common.contains("_iwTheme(IwPalette.darkBranded)"), "dark theme from the tokens");
+    assert_eq!(common.matches("fontFamily: 'Onest', // IW: font in the package").count(), 1, "one builder, Onest");
     // a second `colorScheme:` argument in one ThemeData does not compile (it broke iw.3)
-    assert_eq!(common.matches("    colorScheme:").count(), 2, "one colorScheme per theme");
-    assert!(common.contains("kIwVioletOnDark"));
+    assert_eq!(common.matches("      colorScheme:").count(), 1, "one colorScheme in the builder");
+    let tokens = repo_file("flutter/lib/iw/iw_tokens.dart");
+    for v in ["0xFFEEEBF6", "0xFF1B1630", "0xFF5B2FC4", "0xFF2A1252", "0xFF0F0A1C"] {
+        assert!(tokens.contains(v), "{v} of theme.css missing in iw_tokens.dart");
+    }
     let pubspec = repo_file("flutter/pubspec.yaml");
     assert!(pubspec.contains("family: Onest"));
     for f in ["Regular", "Medium", "SemiBold", "Bold"] {
@@ -133,6 +138,41 @@ fn theme_uses_incorrectus_brand_and_onest() {
         assert!(pubspec.contains(&format!("Onest-{f}.ttf")), "{f} not in pubspec");
     }
     assert!(repo_file("flutter/assets/fonts/OFL.txt").contains("SIL OPEN FONT LICENSE"));
+}
+
+#[test]
+fn branding_lives_in_one_place() {
+    let brand = repo_file("flutter/lib/iw/iw_brand.dart");
+    assert!(brand.contains("class IwBranding") && brand.contains("static void apply("), "IwBranding with apply()");
+    for asset in ["iw_logo.png", "icon.png"] {
+        let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("../flutter/assets/{asset}"));
+        assert!(p.exists(), "{}", p.display());
+    }
+    let tab = repo_file("flutter/lib/desktop/widgets/tabbar_widget.dart");
+    assert!(tab.contains("IwBranding.current.name"), "tab bar takes the name from IwBranding");
+}
+
+#[test]
+fn desktop_ui_has_no_links_to_rustdesk() {
+    for f in [
+        "flutter/lib/common.dart",
+        "flutter/lib/desktop/pages/desktop_home_page.dart",
+        "flutter/lib/desktop/pages/connection_page.dart",
+        "flutter/lib/desktop/pages/install_page.dart",
+        "flutter/lib/desktop/pages/desktop_setting_page.dart",
+    ] {
+        let src = repo_file(f);
+        for (i, line) in src.lines().enumerate() {
+            let code = line.split("//").next().unwrap_or("");
+            assert!(
+                !code.contains("rustdesk.com") && !code.contains("github.com/rustdesk/rustdesk/releases"),
+                "{f}:{}: link to RustDesk in the UI: {line}",
+                i + 1
+            );
+        }
+    }
+    let about = repo_file("flutter/lib/desktop/pages/iw_widgets.dart");
+    assert!(about.contains("AGPL-3.0") && about.contains("RustDesk"), "O programie keeps the license and the origin");
 }
 
 #[test]
