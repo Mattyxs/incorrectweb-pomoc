@@ -57,9 +57,11 @@ Future<void> iwBrandBeforeRunApp() async {
 /// After the start (and after a new organization): asks the organization's Panel; a changed brand rebuilds the
 /// themes at once and is cached for the next start. Without a Panel address nothing happens.
 Future<void> iwBrandRefreshInBackground() async {
-  final panel = (iwStatus()['panel'] ?? '').toString();
+  String panelNow() => (iwStatus()['panel'] ?? '').toString();
+  final panel = panelNow();
   if (panel.isEmpty) return;
-  final b = await iwRefreshBrand(panel, await _iwBrandDir());
+  // The organization may change while the Panel answers: its brand must not land in the new one's cache.
+  final b = await iwRefreshBrand(panel, await _iwBrandDir(), currentPanel: panelNow);
   if (b == null) return;
   IwBranding.apply(b);
   MyTheme.rebuildIw();

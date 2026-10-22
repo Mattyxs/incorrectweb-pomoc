@@ -193,39 +193,62 @@ void iwApplyCachedBrand(Directory dir) {
   IwBranding.apply(IwBrandCache(dir).load() ?? IwBranding.incorrectus);
 }
 
-Future<Uint8List?> _image(http.Client c, Uri url) async {
+/// A logo from the Panel: its bytes, or null with [transient] = the server did not give it (no answer, an error
+/// status) and the next refresh should try again; a 200 that is not an image is dropped for good.
+class _Logo {
+  final Uint8List? bytes;
+  final bool transient;
+  const _Logo(this.bytes, {this.transient = false});
+}
+
+Future<_Logo> _image(http.Client c, Uri url) async {
   try {
     final r = await c.get(url).timeout(const Duration(seconds: 8));
-    if (r.statusCode != 200) return null;
-    return iwIsImage(r.bodyBytes) ? r.bodyBytes : null;
+    if (r.statusCode != 200) return const _Logo(null, transient: true);
+    return _Logo(iwIsImage(r.bodyBytes) ? r.bodyBytes : null);
   } catch (_) {
-    return null;
+    return const _Logo(null, transient: true);
   }
 }
 
+String _trimSlash(String u) => u.endsWith('/') ? u.substring(0, u.length - 1) : u;
+
 /// Asks the Panel for the brand. Returns the new IwBranding when it changed (IwBranding.incorrectus when the brand
-/// was removed), null when nothing changed or the Panel did not answer (the cache stays). Never throws.
-Future<IwBranding?> iwRefreshBrand(String panelUrl, Directory dir, {http.Client? client}) async {
+/// was removed), null when nothing changed or the Panel did not answer (the cache stays). [currentPanel] gives the
+/// Panel address at the moment of writing: when the organization changed meanwhile, nothing is cached or returned.
+/// A logo the Panel did not give (no answer) leaves the hash out of the cache, so the next refresh tries again.
+/// Never throws.
+Future<IwBranding?> iwRefreshBrand(String panelUrl, Directory dir, {http.Client? client, String Function()? currentPanel}) async {
   final base = Uri.tryParse(panelUrl.endsWith('/') ? panelUrl : '$panelUrl/');
   if (base == null || base.scheme != 'https' || base.host.isEmpty) return null;
   final c = client ?? http.Client();
   final cache = IwBrandCache(dir);
+  bool samePanel() => currentPanel == null || _trimSlash(currentPanel()) == _trimSlash(panelUrl);
   try {
     final r = await c.get(base.resolve('api/instance')).timeout(const Duration(seconds: 8));
     if (r.statusCode != 200) return null;
     final s = iwParseInstance(utf8.decode(r.bodyBytes, allowMalformed: true));
     final old = cache.read();
     if (s == null) {
-      if (old == null) return null;
+      if (old == null || !samePanel()) return null;
       cache.clear();
       return IwBranding.incorrectus;
     }
     if (old != null && old.hash != null && old.hash == s.hash) return null;
-    final light = s.logoLight == null ? null : await _image(c, base.resolve('api/instance/branding/${s.logoLight}'));
-    final dark = s.logoDark == null ? null : await _image(c, base.resolve('api/instance/branding/${s.logoDark}'));
-    final saved = IwServerBrand(name: s.name, hash: s.hash, light: s.light, dark: s.dark, logoLight: light == null ? null : s.logoLight, logoDark: dark == null ? null : s.logoDark);
-    cache.save(saved, light, dark);
-    return iwBrandingFrom(saved, light: light, dark: dark);
+    const none = _Logo(null);
+    final light = s.logoLight == null ? none : await _image(c, base.resolve('api/instance/branding/${s.logoLight}'));
+    final dark = s.logoDark == null ? none : await _image(c, base.resolve('api/instance/branding/${s.logoDark}'));
+    if (!samePanel()) return null;
+    final complete = !light.transient && !dark.transient;
+    final saved = IwServerBrand(
+        name: s.name,
+        hash: complete ? s.hash : null,
+        light: s.light,
+        dark: s.dark,
+        logoLight: light.bytes == null ? null : s.logoLight,
+        logoDark: dark.bytes == null ? null : s.logoDark);
+    cache.save(saved, light.bytes, dark.bytes);
+    return iwBrandingFrom(saved, light: light.bytes, dark: dark.bytes);
   } catch (_) {
     return null;
   } finally {

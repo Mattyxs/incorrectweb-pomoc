@@ -117,6 +117,45 @@ void main() {
     expect(asked, ['https://panel.firma.pl/api/instance']);
   });
 
+  test('logo not downloaded (server error, no network): the hash is not kept, the next refresh tries again', () async {
+    var up = false;
+    final asked = <String>[];
+    final client = server({
+      'https://panel.firma.pl/api/instance': () => http.Response(instance(darkPng: null), 200),
+      'https://panel.firma.pl/api/instance/branding/logo-light-9f8e7d6c5b4a.png': () => up ? http.Response.bytes(png, 200) : http.Response('', 503),
+    }, asked);
+    final first = await iwRefreshBrand('https://panel.firma.pl', dir, client: client);
+    expect(first!.custom, isTrue);
+    expect(first.logoLightBytes, isNull);
+    up = true;
+    asked.clear();
+    final second = await iwRefreshBrand('https://panel.firma.pl', dir, client: client);
+    expect(second!.logoLightBytes, png);
+    expect(asked, hasLength(2));
+    // Now complete: same hash, nothing to fetch.
+    expect(await iwRefreshBrand('https://panel.firma.pl', dir, client: client), isNull);
+  });
+
+  test('Panel address changed during the refresh (other organization): nothing cached, nothing applied', () async {
+    final client = server({
+      'https://panel.firma.pl/api/instance': () => http.Response(instance(lightPng: null, darkPng: null), 200),
+    });
+    final b = await iwRefreshBrand('https://panel.firma.pl', dir, client: client, currentPanel: () => 'https://panel.inna-firma.pl');
+    expect(b, isNull);
+    expect(IwBrandCache(dir).read(), isNull);
+    // Same Panel (trailing slash aside): saved as usual.
+    expect(await iwRefreshBrand('https://panel.firma.pl', dir, client: client, currentPanel: () => 'https://panel.firma.pl/'), isNotNull);
+    expect(IwBrandCache(dir).read(), isNotNull);
+  });
+
+  test('Panel address changed while the brand was being removed: the cache of the new organization stays', () async {
+    final custom = server({'https://panel.firma.pl/api/instance': () => http.Response(instance(lightPng: null, darkPng: null), 200)});
+    await iwRefreshBrand('https://panel.firma.pl', dir, client: custom);
+    final back = server({'https://panel.firma.pl/api/instance': () => http.Response(instance(mode: 'default'), 200)});
+    expect(await iwRefreshBrand('https://panel.firma.pl', dir, client: back, currentPanel: () => ''), isNull);
+    expect(IwBrandCache(dir).read(), isNotNull);
+  });
+
   test('branding cached applied before runApp: colours and logo from disk, without the network', () async {
     final client = server({
       'https://panel.firma.pl/api/instance': () => http.Response(instance(darkPng: null), 200),
