@@ -28,6 +28,11 @@ pub const OPT_ORG_NAME: &str = "iw-org-name";
 pub const OPT_ORG_CODE: &str = "iw-org-code";
 pub const OPT_UNATTENDED: &str = "iw-unattended";
 pub const OPT_KEY_MISMATCH: &str = "iw-key-mismatch";
+/// Panel of the organization and its brand colours (org.rs `OrgConfig::options`); the brand itself comes from
+/// `<panel>/api/instance` (flutter/lib/iw/iw_brand_fetch.dart).
+pub const OPT_PANEL_URL: &str = "iw-panel-url";
+pub const OPT_BRAND_PRIMARY: &str = "iw-brand-primary";
+pub const OPT_BRAND_ACCENT: &str = "iw-brand-accent";
 const DEFAULT_LICENSE_URL: &str = "https://license.incorrectus.com";
 const HELLO_EVERY: Duration = Duration::from_secs(24 * 3600);
 
@@ -247,6 +252,9 @@ pub fn status_json() -> String {
         "org": get(OPT_ORG_NAME),
         "unattended": get(OPT_UNATTENDED) == "Y",
         "keyMismatch": get(OPT_KEY_MISMATCH) == "Y",
+        "panel": get(OPT_PANEL_URL),
+        "primary": get(OPT_BRAND_PRIMARY),
+        "accent": get(OPT_BRAND_ACCENT),
         "version": iw::IW_VERSION,
         "name": iw::DISPLAY_NAME,
         "source": iw::SOURCE_URL,
@@ -264,6 +272,9 @@ pub fn clear_org() {
         OPT_ORG_NAME,
         OPT_ORG_CODE,
         OPT_KEY_MISMATCH,
+        OPT_PANEL_URL,
+        OPT_BRAND_PRIMARY,
+        OPT_BRAND_ACCENT,
     ] {
         crate::ui_interface::set_option(k.to_owned(), String::new());
     }

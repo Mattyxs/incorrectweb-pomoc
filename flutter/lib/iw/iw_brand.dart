@@ -1,9 +1,9 @@
 // IW: branding of IncorrectWeb Pomoc in ONE place: name, main and accent color, logos, app icon.
 // No FFI imports on purpose, so widget tests can load this file without the native library.
 //
-// Today the values are the Incorrectus defaults below. Next step: the branding set in the Panel of
-// the client (main and accent color, light/dark logo, name) is fetched from the server of the
-// organization and passed to IwBranding.apply() before the first frame (see the note at apply()).
+// The Incorrectus defaults are below. The brand set in the Panel of the organization (Wygląd i marka:
+// colour tokens, light/dark logo, name) comes from <panel>/api/instance (iw_brand_fetch.dart), is cached
+// on disk and passed to IwBranding.apply() before the first frame.
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -31,6 +31,14 @@ class IwBranding {
   /// built into the bundle (flutter/macos/Runner/AppIcon.icns, windows/runner/resources/app_icon.ico).
   final String appIconAsset;
 
+  /// The organization's own brand (Panel → Wygląd i marka): "Created by Incorrectus" is shown then.
+  final bool custom;
+
+  /// Colour tokens of the brand (theme.css names, e.g. `--bg`) for the light and the dark theme;
+  /// null = derived from [primary] and [accent] (iw_tokens.dart).
+  final Map<String, Color>? lightTokens;
+  final Map<String, Color>? darkTokens;
+
   const IwBranding({
     required this.name,
     required this.company,
@@ -41,6 +49,9 @@ class IwBranding {
     required this.appIconAsset,
     this.logoLightBytes,
     this.logoDarkBytes,
+    this.custom = false,
+    this.lightTokens,
+    this.darkTokens,
   });
 
   /// Defaults: Incorrectus / IncorrectWeb (logo of packages/ui, icon of apps/desktop).
@@ -72,6 +83,9 @@ class IwBranding {
     String? appIconAsset,
     Uint8List? logoLightBytes,
     Uint8List? logoDarkBytes,
+    bool? custom,
+    Map<String, Color>? lightTokens,
+    Map<String, Color>? darkTokens,
   }) =>
       IwBranding(
         name: name ?? this.name,
@@ -83,6 +97,9 @@ class IwBranding {
         appIconAsset: appIconAsset ?? this.appIconAsset,
         logoLightBytes: logoLightBytes ?? this.logoLightBytes,
         logoDarkBytes: logoDarkBytes ?? this.logoDarkBytes,
+        custom: custom ?? this.custom,
+        lightTokens: lightTokens ?? this.lightTokens,
+        darkTokens: darkTokens ?? this.darkTokens,
       );
 
   ImageProvider logo(Brightness brightness) {

@@ -6,6 +6,12 @@ pub struct OrgConfig {
     pub host: String,
     pub key: String,
     pub api: String,
+    /// Address of the organization's Panel (https, no trailing slash): its `/api/instance` gives the brand
+    /// (logo, colours) set in Panel → Wygląd i marka. Empty when unknown.
+    pub panel: String,
+    /// Brand colours from the license server (`#rrggbb`), the fallback before the Panel answers. Empty when unknown.
+    pub primary: String,
+    pub accent: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -158,7 +164,34 @@ pub fn parse_license_response(json: &str) -> Result<OrgConfig, OrgError> {
         .map(|n| display_name(&n))
         .filter(|n| !n.is_empty())
         .ok_or(OrgError::Invalid)?;
-    Ok(OrgConfig { name, host, key, api: api.trim_end_matches('/').to_owned() })
+    let panel = v
+        .get("apps")
+        .and_then(|a| text(a, "panel"))
+        .filter(|p| valid_panel(p))
+        .map(|p| p.trim_end_matches('/').to_owned())
+        .unwrap_or_default();
+    let colour = |k: &str| v.get("company").and_then(|c| text(c, k)).and_then(|c| hex_colour(&c)).unwrap_or_default();
+    Ok(OrgConfig { name, host, key, api: api.trim_end_matches('/').to_owned(), panel, primary: colour("primary"), accent: colour("accent") })
+}
+
+/// Panel address: https with a host, no credentials, query or fragment.
+fn valid_panel(p: &str) -> bool {
+    let Ok(url) = url::Url::parse(p) else { return false };
+    url.scheme() == "https" && url.host_str().is_some() && url.username().is_empty() && url.password().is_none() && url.query().is_none() && url.fragment().is_none()
+}
+
+/// `#rgb` or `#rrggbb` (any case) → `#rrggbb`; anything else → None.
+fn hex_colour(c: &str) -> Option<String> {
+    let s = c.trim().to_ascii_lowercase();
+    let hex = s.strip_prefix('#')?;
+    if !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    match hex.len() {
+        6 => Some(s),
+        3 => Some(format!("#{}", hex.chars().flat_map(|ch| [ch, ch]).collect::<String>())),
+        _ => None,
+    }
 }
 
 impl OrgConfig {
@@ -170,6 +203,9 @@ impl OrgConfig {
             ("key", self.key.clone()),
             ("iw-api", self.api.clone()),
             ("iw-org-name", self.name.clone()),
+            ("iw-panel-url", self.panel.clone()),
+            ("iw-brand-primary", self.primary.clone()),
+            ("iw-brand-accent", self.accent.clone()),
         ]
     }
 }
@@ -233,6 +269,32 @@ mod tests {
     }
 
     #[test]
+    fn license_response_keeps_panel_url_and_colours() {
+        let cfg = parse_license_response(&format!(
+            r##"{{"company":{{"name":"Smart-Biznes","primary":"#2F5B93","accent":"#c99700"}},"apps":{{"panel":"https://panel.smart-biznes.net/","connect":"https://connect.smart-biznes.net/"}},"remote":{{"host":"connect.smart-biznes.net","key":"{KEY}","api":"https://connect.smart-biznes.net"}}}}"##
+        ))
+        .unwrap();
+        assert_eq!(cfg.panel, "https://panel.smart-biznes.net");
+        assert_eq!(cfg.primary, "#2f5b93");
+        assert_eq!(cfg.accent, "#c99700");
+        let opts = cfg.options();
+        assert!(opts.contains(&("iw-panel-url", "https://panel.smart-biznes.net".to_owned())));
+        assert!(opts.contains(&("iw-brand-primary", "#2f5b93".to_owned())));
+        assert!(opts.contains(&("iw-brand-accent", "#c99700".to_owned())));
+    }
+
+    #[test]
+    fn license_response_drops_bad_panel_url_and_colours() {
+        let cfg = parse_license_response(&format!(
+            r##"{{"company":{{"name":"Firma","primary":"red;}}","accent":"#12345"}},"apps":{{"panel":"http://panel.firma.pl/"}},"remote":{{"host":"connect.firma.pl","key":"{KEY}","api":"https://connect.firma.pl"}}}}"##
+        ))
+        .unwrap();
+        assert_eq!((cfg.panel.as_str(), cfg.primary.as_str(), cfg.accent.as_str()), ("", "", ""));
+        // Empty values are written too: the next organization must not keep the previous one's look.
+        assert!(cfg.options().contains(&("iw-panel-url", String::new())));
+    }
+
+    #[test]
     fn parse_license_response_without_remote_means_no_remote_help() {
         assert_eq!(parse_license_response(&response("null")), Err(OrgError::NoRemote));
         let no_field = r#"{"company":{"name":"Incorrectus"}}"#;
@@ -275,7 +337,7 @@ mod tests {
     }
 
     fn cfg(name: &str) -> OrgConfig {
-        OrgConfig { name: name.into(), host: "h.example".into(), key: KEY.into(), api: "https://h.example".into() }
+        OrgConfig { name: name.into(), host: "h.example".into(), key: KEY.into(), api: "https://h.example".into(), panel: String::new(), primary: String::new(), accent: String::new() }
     }
 
     #[test]
@@ -312,6 +374,9 @@ mod tests {
             host: "connect.incorrectus.com".into(),
             key: KEY.into(),
             api: "https://connect.incorrectus.com".into(),
+            panel: "https://panel.incorrectus.com".into(),
+            primary: "#431c77".into(),
+            accent: "#ef7d1d".into(),
         };
         let o: std::collections::HashMap<_, _> = cfg.options().into_iter().collect();
         assert_eq!(o["custom-rendezvous-server"], "connect.incorrectus.com");

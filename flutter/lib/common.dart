@@ -390,6 +390,22 @@ class MyTheme {
     ],
   );
 
+  /// IW: the organization's brand changed (iw_brand_fetch.dart): both themes again from the branded palette.
+  static void rebuildIw() {
+    lightTheme = _iwTheme(IwPalette.lightBranded).copyWith(
+      extensions: <ThemeExtension<dynamic>>[
+        ColorThemeExtension.light,
+        TabbarTheme.light,
+      ],
+    );
+    darkTheme = _iwTheme(IwPalette.darkBranded).copyWith(
+      extensions: <ThemeExtension<dynamic>>[
+        ColorThemeExtension.dark,
+        TabbarTheme.dark,
+      ],
+    );
+  }
+
   static ThemeData _iwTheme(IwPalette p) {
     final desktop = isDesktop || isWebDesktop;
     final isDark = p.brightness == Brightness.dark;

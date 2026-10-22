@@ -3,6 +3,7 @@
 // so the Flutter tests can check the values and their contrast.
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/iw/iw_brand.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class IwPalette {
   final Brightness brightness;
@@ -148,6 +149,8 @@ class IwPalette {
       Theme.of(context).brightness == Brightness.dark ? darkBranded : lightBranded;
 
   static IwPalette _branded(IwPalette p, IwBranding b) {
+    final t = p.brightness == Brightness.dark ? b.darkTokens : b.lightTokens;
+    if (t != null) return _fromTokens(p, t);
     const d = IwBranding.incorrectus;
     if (b.primary == d.primary && b.accent == d.accent) return p;
     final isDark = p.brightness == Brightness.dark;
@@ -169,6 +172,30 @@ class IwPalette {
       side: side, sideText: p.sideText, sideMuted: p.sideMuted, sideDim: p.sideDim,
       sideAccent: p.sideAccent, sideHover: p.sideHover, sideLine: p.sideLine,
       shadow: p.shadow,
+    );
+  }
+
+  /// The palette from the brand's colour tokens (theme.css names; checked for contrast by the Panel).
+  /// A token the server did not send keeps the Incorrectus value.
+  static IwPalette _fromTokens(IwPalette p, Map<String, Color> t) {
+    Color c(String k, Color d) => t[k] ?? d;
+    final orange = c('--orange', p.orange);
+    return IwPalette(
+      brightness: p.brightness,
+      bg: c('--bg', p.bg), bg2: c('--bg-2', p.bg2), panel: c('--panel', p.panel), panelSoft: c('--panel-soft', p.panelSoft),
+      panelHover: c('--panel-hover', p.panelHover),
+      ink: c('--ink', p.ink), ink2: c('--ink-2', p.ink2), muted: c('--muted', p.muted), dim: c('--dim', p.dim),
+      line: c('--line', p.line), line2: c('--line-2', p.line2),
+      violet: c('--violet', p.violet), violetSoft: c('--violet-soft', p.violetSoft), brand: c('--brand', p.brand),
+      accentInk: c('--accent-ink', p.accentInk),
+      orange: orange, onOrange: c('--on-orange', p.onOrange), orangeSoft: c('--orange-soft', p.orangeSoft),
+      orangeInk: c('--orange-ink', p.orangeInk), orangeHover: Color.lerp(orange, Colors.white, 0.1)!,
+      danger: p.danger, dangerSoft: p.dangerSoft, dangerInk: p.dangerInk,
+      ok: p.ok, okSoft: p.okSoft, okInk: p.okInk,
+      focus: c('--focus', p.focus), field: c('--field', p.field), soft: c('--soft', p.soft),
+      side: c('--side', p.side), sideText: c('--side-text', p.sideText), sideMuted: c('--side-muted', p.sideMuted),
+      sideDim: c('--side-dim', p.sideDim), sideAccent: c('--side-accent', p.sideAccent), sideHover: c('--side-hover', p.sideHover),
+      sideLine: p.sideLine, shadow: p.shadow,
     );
   }
 
@@ -237,5 +264,26 @@ class IwAppIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return Image.asset(IwBranding.current.appIconAsset,
         width: size, height: size, filterQuality: FilterQuality.medium);
+  }
+}
+
+/// "Created by Incorrectus" (link to incorrectus.com), only with the organization's own brand: the brand
+/// of the organization is shown, our mark stays (decision of 22.10, like the web apps and e-mails).
+class IwCreatedBy extends StatelessWidget {
+  const IwCreatedBy({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    if (!IwBranding.current.custom) return const SizedBox.shrink();
+    final p = IwPalette.of(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: () => launchUrl(Uri.parse('https://incorrectus.com')),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Text('Created by Incorrectus',
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: p.muted)),
+      ),
+    );
   }
 }

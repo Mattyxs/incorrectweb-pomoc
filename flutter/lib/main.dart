@@ -24,6 +24,7 @@ import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'common.dart';
+import 'desktop/pages/iw_widgets.dart'; // IW: brand of the organization
 import 'consts.dart';
 import 'mobile/pages/home_page.dart';
 import 'mobile/pages/server_page.dart';
@@ -131,6 +132,8 @@ Future<void> initEnv(String appType) async {
   _registerEventHandler();
   // Update the system theme.
   updateSystemWindowTheme();
+  // IW: the organization's brand before the first frame (cached; iw_brand_fetch.dart).
+  if (isDesktop) await iwBrandBeforeRunApp();
 }
 
 void runMainApp(bool startService) async {
@@ -147,6 +150,8 @@ void runMainApp(bool startService) async {
   await Future.wait([gFFI.abModel.loadCache(), gFFI.groupModel.loadCache()]);
   gFFI.userModel.refreshCurrentUser();
   runApp(App());
+  // IW: a newer brand from the organization's Panel, in the background.
+  if (isDesktop) unawaited(iwBrandRefreshInBackground());
 
   bool? alwaysOnTop;
   if (isDesktop) {

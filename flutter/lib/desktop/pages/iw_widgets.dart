@@ -2,14 +2,18 @@
 // link confirmation, history). All texts are Polish on purpose.
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/iw/iw_brand.dart';
+import 'package:flutter_hbb/iw/iw_brand_fetch.dart';
 import 'package:flutter_hbb/iw/iw_tokens.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
+import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // IW: brand constants live in iw_brand.dart (no FFI import, so tests can use them)
@@ -23,6 +27,53 @@ Map<String, dynamic> iwStatus() {
   } catch (_) {
     return {};
   }
+}
+
+// ---- brand of the organization (Panel → Wygląd i marka) -------------------------------------------
+
+Future<Directory> _iwBrandDir() async => Directory('${(await getApplicationSupportDirectory()).path}/iw-brand');
+
+/// Before the first frame: the cached brand of the organization, else its colours from the license server,
+/// else the Incorrectus look. Never throws.
+Future<void> iwBrandBeforeRunApp() async {
+  try {
+    iwApplyCachedBrand(await _iwBrandDir());
+    if (!IwBranding.current.custom) {
+      final s = iwStatus();
+      final p = iwParseColor((s['primary'] ?? '').toString());
+      final a = iwParseColor((s['accent'] ?? '').toString());
+      const d = IwBranding.incorrectus;
+      if (p != null && a != null && (p != d.primary || a != d.accent)) {
+        final org = (s['org'] ?? '').toString();
+        IwBranding.apply(d.copyWith(primary: p, accent: a, custom: true, company: org.isEmpty ? null : org));
+      }
+    }
+  } catch (_) {
+    IwBranding.apply(IwBranding.incorrectus);
+  }
+  MyTheme.rebuildIw();
+}
+
+/// After the start (and after a new organization): asks the organization's Panel; a changed brand rebuilds the
+/// themes at once and is cached for the next start. Without a Panel address nothing happens.
+Future<void> iwBrandRefreshInBackground() async {
+  final panel = (iwStatus()['panel'] ?? '').toString();
+  if (panel.isEmpty) return;
+  final b = await iwRefreshBrand(panel, await _iwBrandDir());
+  if (b == null) return;
+  IwBranding.apply(b);
+  MyTheme.rebuildIw();
+  Get.forceAppUpdate();
+}
+
+/// The organization was changed or removed: its look goes with it.
+Future<void> iwBrandForget() async {
+  try {
+    IwBrandCache(await _iwBrandDir()).clear();
+  } catch (_) {}
+  IwBranding.apply(IwBranding.incorrectus);
+  MyTheme.rebuildIw();
+  Get.forceAppUpdate();
 }
 
 /// Counts down from [seconds] to 0 and rebuilds [builder] every second.
@@ -250,6 +301,8 @@ class _IwOrgPageState extends State<IwOrgPage> {
     res = _decode(raw);
     if (!mounted) return;
     if (res['ok'] == true) {
+      // A new organization: the look of the previous one goes, the new one comes from its Panel.
+      unawaited(iwBrandForget().then((_) => iwBrandRefreshInBackground()));
       widget.onConfigured();
       return;
     }
@@ -585,6 +638,7 @@ class _IwSettingsSectionState extends State<IwSettingsSection> {
                 if (ok == true) {
                   await bind.mainIwSetUnattended(enable: false, password: '');
                   bind.mainIwClearOrg();
+                  unawaited(iwBrandForget());
                   _refresh();
                 }
               },
@@ -755,6 +809,7 @@ Widget iwAboutBlock(BuildContext context,
             const SizedBox(height: 2),
             Text(IwBranding.current.company,
                 style: TextStyle(fontSize: 13.5, color: p.muted)),
+            const IwCreatedBy(),
           ]),
         ),
       ]),
