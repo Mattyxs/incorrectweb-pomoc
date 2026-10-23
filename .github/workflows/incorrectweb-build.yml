@@ -436,7 +436,17 @@ jobs:
           codesign --force --deep --sign - "$APP"
           codesign --verify --deep --strict "$APP"
           mkdir -p out
-          create-dmg --icon "$(basename "$APP")" 200 190 --hide-extension "$(basename "$APP")" --window-size 800 400 --app-drop-link 600 185 "out/IncorrectWebPomoc-${VERSION}-${{ matrix.job.arch }}.dmg" "$APP"
+          # look of the window: res/installer (background from art/dmg-background.svg, make-installer-art.py)
+          create-dmg \
+            --volname "IncorrectWeb Pomoc" \
+            --volicon "$APP/Contents/Resources/AppIcon.icns" \
+            --background res/installer/dmg-background.tiff \
+            --window-size 660 428 \
+            --icon-size 128 \
+            --icon "$(basename "$APP")" 180 180 \
+            --hide-extension "$(basename "$APP")" \
+            --app-drop-link 480 180 \
+            "out/IncorrectWebPomoc-${VERSION}-${{ matrix.job.arch }}.dmg" "$APP"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
