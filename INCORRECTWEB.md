@@ -1,6 +1,6 @@
 # IncorrectWeb Pomoc
 
-Fork of [RustDesk](https://github.com/rustdesk/rustdesk) 1.4.9 (AGPL-3.0). Version `1.4.9-iw.6`.
+Fork of [RustDesk](https://github.com/rustdesk/rustdesk) 1.4.9 (AGPL-3.0). Version `1.4.9-iw.7`.
 Source: https://github.com/Mattyxs/incorrectweb-pomoc. `libs/hbb_common` is the fork https://github.com/Mattyxs/incorrectweb-pomoc-hbb-common (branch `iw`).
 
 Every change is marked `// IW:` (Rust, Dart). Pure logic is in `src/iw/` and is tested by `iw-tests` (`cargo test --manifest-path iw-tests/Cargo.toml`).
