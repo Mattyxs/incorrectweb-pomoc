@@ -1,7 +1,6 @@
-use crate::{common::do_check_software_update, hbbs_http::create_http_client_with_url};
+use crate::common::do_check_software_update;
 use hbb_common::{bail, config, log, ResultType};
 use std::{
-    io::Write,
     path::PathBuf,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -129,64 +128,37 @@ fn check_update(manually: bool) -> ResultType<()> {
         log::debug!("No update available.");
         return Ok(());
     };
-    let download_url = offer.package.url.clone();
     let version = offer.version.clone();
-    if crate::iw::update::file_name(&download_url).is_none() {
-        bail!("IW: unusable package address: {}", download_url);
-    }
-    log::debug!("New version available: {}", &version);
-    let client = create_http_client_with_url(&download_url);
-    let Some(file_path) = get_download_file_from_url(&download_url) else {
-        bail!("Failed to get the file path from the URL: {}", download_url);
+    let Some(name) = crate::iw::update::file_name(&offer.package.url) else {
+        bail!("IW: unusable package address: {}", offer.package.url);
     };
-    let mut is_file_exists = false;
-    if file_path.exists() {
-        // Check if the file size is the same as the server file size
-        // If the file size is the same, we don't need to download it again.
-        let file_size = std::fs::metadata(&file_path)?.len();
-        let response = client.head(&download_url).send()?;
-        if !response.status().is_success() {
-            bail!("Failed to get the file size: {}", response.status());
-        }
-        let total_size = response
-            .headers()
-            .get(reqwest::header::CONTENT_LENGTH)
-            .and_then(|ct_len| ct_len.to_str().ok())
-            .and_then(|ct_len| ct_len.parse::<u64>().ok());
-        let Some(total_size) = total_size else {
-            bail!("Failed to get content length");
-        };
-        if file_size == total_size {
-            is_file_exists = true;
-        } else {
-            std::fs::remove_file(&file_path)?;
-        }
-    }
-    if !is_file_exists {
-        let response = client.get(&download_url).send()?;
-        if !response.status().is_success() {
-            bail!(
-                "Failed to download the new version file: {}",
-                response.status()
-            );
-        }
-        let file_data = response.bytes()?;
-        let mut file = std::fs::File::create(&file_path)?;
-        file.write_all(&file_data)?;
-    }
-    // IW: the file must be the published package (SHA-256 and the signature of IncorrectWeb releases) before it runs,
-    // also when an earlier download is reused.
-    let bytes = std::fs::read(&file_path)?;
+    log::debug!("New version available: {}", &version);
+    // IW: into memory through our own client, checked (SHA-256, signature of IncorrectWeb releases for this file name)
+    // before anything is written.
+    let bytes = crate::iw_app::download_update(&offer.package.url)?;
     if let Err(e) = crate::iw::update::verify(&bytes, &offer.package, crate::iw::update::PUBLIC_KEY) {
-        std::fs::remove_file(&file_path).ok();
         bail!("IW: the package of {} was rejected: {:?}", version, e);
     }
-    // We have checked if the `conns` is empty before, but we need to check again.
-    // No need to care about the downloaded file here, because it's rare case that the `conns` are empty
-    // before the download, but not empty after the download.
-    if has_no_active_conns() {
-        #[cfg(target_os = "windows")]
-        update_new_version(false, &version, &file_path);
+    #[cfg(not(target_os = "windows"))]
+    let _ = (name, bytes);
+    // Windows: written to the folder of SYSTEM and the administrators, opened read-only without sharing writes or
+    // deletion, read back through that handle and checked again; the handle stays open until the installer started.
+    #[cfg(target_os = "windows")]
+    {
+        use crate::iw::update_file;
+        let path = crate::iw_app::stage_update(&name, &bytes)?;
+        let mut file = update_file::open_locked(&path)?;
+        let staged = update_file::read_all(&mut file)?;
+        if let Err(e) = crate::iw::update::verify(&staged, &offer.package, crate::iw::update::PUBLIC_KEY) {
+            drop(file);
+            std::fs::remove_file(&path).ok();
+            bail!("IW: the written package of {} was rejected: {:?}", version, e);
+        }
+        // We have checked if the `conns` is empty before, but we need to check again.
+        if has_no_active_conns() {
+            update_new_version(false, &version, &path);
+        }
+        drop(file);
     }
     Ok(())
 }

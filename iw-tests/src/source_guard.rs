@@ -204,3 +204,30 @@ fn nothing_runs_a_package_before_it_is_verified() {
     assert!(verify < run, "the signature is checked before the package runs");
     assert!(!check.contains("update_msi"), "Pomoc is published as .exe only: never the MSI path");
 }
+
+fn body(text: &str, start: &str) -> String {
+    text.split(start).nth(1).unwrap_or_else(|| panic!("{start}")).split("\n}\n").next().unwrap().to_owned()
+}
+
+#[test]
+fn updates_have_their_own_http_client() {
+    let app = repo_file("src/iw_app.rs");
+    let client = body(&app, "pub fn update_client(");
+    assert!(client.contains("use_rustls_tls()"), "rustls: {client}");
+    assert!(client.contains("Policy::none()"), "no redirects: {client}");
+    assert!(!client.contains("danger_accept"), "never accept an invalid certificate");
+    assert!(!body(&app, "pub fn check_update(").contains("create_http_client_with_url"), "not the RustDesk client (its TLS fallback, its proxy)");
+    let check = body(&repo_file("src/updater.rs"), "fn check_update(");
+    assert!(!check.contains("create_http_client_with_url"), "the package neither");
+    assert!(!check.contains("get_download_file_from_url"), "no file in the temporary folder");
+}
+
+#[test]
+fn the_package_runs_from_the_handle_that_was_verified() {
+    let check = body(&repo_file("src/updater.rs"), "fn check_update(");
+    let read = check.find("update_file::read_all(").expect("the package is read back through the locked handle");
+    let verify = check[read..].find("iw::update::verify(").map(|i| i + read).expect("and verified again");
+    let run = check.find("update_new_version(").unwrap();
+    assert!(check.contains("update_file::open_locked("));
+    assert!(read < verify && verify < run, "read, verify, then run");
+}

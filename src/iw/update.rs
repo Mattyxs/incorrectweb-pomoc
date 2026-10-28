@@ -12,8 +12,9 @@
 use std::cmp::Ordering;
 
 pub const MANIFEST_URL: &str = "https://license.incorrectus.com/desktop/pomoc.json";
-/// The only host packages are taken from.
+/// The only host packages are taken from, and the only folder there.
 pub const PACKAGE_HOST: &str = "license.incorrectus.com";
+pub const PACKAGE_PATH: &str = "/desktop/pomoc/";
 /// Public minisign key of IncorrectWeb releases (`plugins.updater.pubkey` of apps/desktop/src-tauri/tauri.conf.json).
 pub const PUBLIC_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRFRUU4NDUwOEUxQkZGQzUKUldURi94dU9VSVR1VHVDODRRdjNsQTlTNEFmSHgxeHlYRlVIUWJEOFBhZ1RYVngzaUNFOC9CQ0gK";
 
@@ -81,10 +82,18 @@ pub fn offer(manifest: &str, current: &str, platform: &str) -> Result<Option<Off
     let p = m.get("platforms").and_then(|p| p.get(platform)).ok_or(UpdateError::NoPackage)?;
     let field = |k: &str| p.get(k).and_then(|v| v.as_str()).map(str::to_owned).ok_or(UpdateError::Manifest);
     let package = Package { url: field("url")?, sha256: field("sha256")?.to_lowercase(), signature: field("signature")? };
+    // Only `https://license.incorrectus.com/desktop/pomoc/IncorrectWebPomoc-<version>-…`: never another file of the
+    // update server (the desktop installer) and never an older package under the new version.
+    let name = file_name(&package.url).ok_or(UpdateError::Address)?;
     let on_host = url::Url::parse(&package.url).is_ok_and(|u| {
-        u.scheme() == "https" && u.host_str() == Some(PACKAGE_HOST) && u.username().is_empty() && u.password().is_none() && u.port().is_none()
+        u.scheme() == "https"
+            && u.host_str() == Some(PACKAGE_HOST)
+            && u.username().is_empty()
+            && u.password().is_none()
+            && u.port().is_none()
+            && u.path() == format!("{PACKAGE_PATH}{name}")
     });
-    if !on_host || file_name(&package.url).is_none() {
+    if !on_host || !name.starts_with(&format!("IncorrectWebPomoc-{version}-")) {
         return Err(UpdateError::Address);
     }
     if package.sha256.len() != 64 || !package.sha256.bytes().all(|c| c.is_ascii_hexdigit()) {
@@ -106,7 +115,8 @@ pub fn file_name(url: &str) -> Option<String> {
     (plain && (name.ends_with(".exe") || name.ends_with(".dmg"))).then(|| name.to_owned())
 }
 
-/// The downloaded package is the published one: its SHA-256 and the minisign signature with `public_key`.
+/// The downloaded package is the published one: its SHA-256 and the minisign signature with `public_key`, made for the
+/// file of the address (`file:<name>` in the trusted comment, as `tauri signer sign` writes it).
 pub fn verify(bytes: &[u8], package: &Package, public_key: &str) -> Result<(), UpdateError> {
     use hbb_common::base64::{engine::general_purpose::STANDARD, Engine};
     use sha2::{Digest, Sha256};
@@ -117,17 +127,29 @@ pub fn verify(bytes: &[u8], package: &Package, public_key: &str) -> Result<(), U
     let text = |b64: &str| STANDARD.decode(b64.trim()).ok().and_then(|b| String::from_utf8(b).ok());
     let key = text(public_key).and_then(|t| minisign_verify::PublicKey::decode(&t).ok()).ok_or(UpdateError::Signature)?;
     let sig = text(&package.signature).and_then(|t| minisign_verify::Signature::decode(&t).ok()).ok_or(UpdateError::Signature)?;
-    key.verify(bytes, &sig, true).map_err(|_| UpdateError::Signature)
+    key.verify(bytes, &sig, true).map_err(|_| UpdateError::Signature)?;
+    let name = file_name(&package.url).ok_or(UpdateError::Signature)?;
+    let file = format!("file:{name}");
+    if !sig.trusted_comment().split('\t').any(|field| field == file) {
+        return Err(UpdateError::Signature);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // A throwaway key made for these tests (`tauri signer generate`), never used for releases, and a file it signed.
-    const TEST_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBQkQ5MzJEMDgyM0FBRkUKUldUK3FpTUlMWk85K2wzbWlISnJ0ZEFFYllHcjFna1ZpRmRqWXJhcEV3Z2NzZmt4T0plSlFyd2oK";
-    const TEST_FILE: &[u8] = b"IncorrectWeb Pomoc test package\n";
-    const TEST_SIG: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUK3FpTUlMWk85K2xaSko0TE40aVM4S1pFeklNcUh2OGkzeVQwYVppRTluZEpoRFJEZVFsdjlZa3hyRzdKZTU5Y1BwaGgyangzcUJkV1R5WWw0aUFlMkZTSTN1U0RWR2cwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjEzMTQ1CWZpbGU6cGtnLmJpbgpveTZJTnJNbHBOQnRLSUczRTJrNjY4eTFSSSs1cXhwNElZOHVlUHo4bW1sazljcy9tU0RzQ3pQbUc2QnFsN1ozdjRvWE5uY2QyaUE1dXJHbHFXaE9DUT09Cg==";
+    // A throwaway key made for these tests (`tauri signer generate`), never used for releases, and files it signed under
+    // their release names (the name is in the trusted comment of the signature: `file:<name>`).
+    const TEST_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQwQ0MxNDc5MTJCREUwNDkKUldSSjRMMFNlUlRNUUk1YXErbUkwa0lsdHpHdW9ZR3N6azNOcG9kZjY5TCtoSmw4N3ZEWVNRVHkK";
+    const TEST_FILE: &[u8] = b"IncorrectWeb Pomoc test package 1.4.9-iw.7\n";
+    const TEST_SIG: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSSjRMMFNlUlRNUUQ3ZWxOTUVJQzQ5bzIzQzBOdk8wM1dUOW5zUms1c0Y4V3pnOWFNUjcyaHFWclNwVjJwSVNnUlZMVFlra2NaWm13UVNhamh6S3YwWUh3akcwdW12YkFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjE1NzU1CWZpbGU6SW5jb3JyZWN0V2ViUG9tb2MtMS40LjktaXcuNy14NjQuZXhlClB6N2lnUVRVb0JzMzg4c3FvR0JidzVvZjRXYmgxMU5UWnVydjViZEhDTS9PSWNjZFErZjlzMFVGT2F0MHhVMXNGYmRnUTA3L2tNOWlDRkJ3RXhzU0J3PT0K";
+    /// An older package, signed under its own name.
+    const OLD_FILE: &[u8] = b"IncorrectWeb Pomoc test package 1.4.9-iw.5\n";
+    const OLD_SIG: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSSjRMMFNlUlRNUUdrTGU1UWIvUVp6RS91NTh3WE8zVUxhUXAxb1Z5VitaWVJuT1Q4d1AwZ25Lc3F6UXJTbHBuMm9Lc1NIaFg2bElBS2s3dllBbFpZejhNbWJHZTJGaUFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjE1NzU2CWZpbGU6SW5jb3JyZWN0V2ViUG9tb2MtMS40LjktaXcuNS14NjQuZXhlCnVGaFhoQWk5cmdyRXBXZWpYTU9kVnUyOUlNUlJybklJczJud0VvUkNkMisrRGxNTWtUb0htZmF6bFBEYmJmdS80YWpOdWRqOGJlN2pwbGpGTWVwdkNnPT0K";
+    /// The bytes of TEST_FILE signed as `pkg.bin`.
+    const OTHER_NAME_SIG: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSSjRMMFNlUlRNUU1RWS9zbEJiMU1IOFI4UHJmeEJvRjRoUWNZb01yUU5GMXl0ajM4anl3Yjc0dW5ReERocW8rSGorSFVDQVdqSzRscFF4YUh3S2FhRXkxdHZRVlhZVGdZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjE1NzU2CWZpbGU6cGtnLmJpbgowNEo5Ky9iTjBaQWZaaFd3ZWsxOWNlc3ViT1lOZDlLN0tEcE0yVEkvaVN6Y3hLM29rZWIwOWNXZUNwYXdZNWJSRGdBWGZWaXJQUXhzL2h2WnBqV3REZz09Cg==";
 
     fn sha(bytes: &[u8]) -> String {
         use sha2::{Digest, Sha256};
@@ -179,9 +201,9 @@ mod tests {
 
     #[test]
     fn below_the_minimum_the_offer_is_required() {
-        assert!(offer(&manifest("1.4.9-iw.8", Some("1.4.9-iw.7")), "1.4.9-iw.6", "windows-x86_64").unwrap().unwrap().required);
-        assert!(!offer(&manifest("1.4.9-iw.8", Some("1.4.9-iw.6")), "1.4.9-iw.6", "windows-x86_64").unwrap().unwrap().required);
-        assert!(!offer(&manifest("1.4.9-iw.8", Some("zawsze")), "1.4.9-iw.6", "windows-x86_64").unwrap().unwrap().required);
+        assert!(offer(&manifest("1.4.9-iw.7", Some("1.4.9-iw.7")), "1.4.9-iw.6", "windows-x86_64").unwrap().unwrap().required);
+        assert!(!offer(&manifest("1.4.9-iw.7", Some("1.4.9-iw.6")), "1.4.9-iw.6", "windows-x86_64").unwrap().unwrap().required);
+        assert!(!offer(&manifest("1.4.9-iw.7", Some("zawsze")), "1.4.9-iw.6", "windows-x86_64").unwrap().unwrap().required);
     }
 
     #[test]
@@ -252,5 +274,43 @@ mod tests {
         for name in ["IncorrectWebPomoc-1.4.9-iw.7-x64.exe", "IncorrectWebPomoc-1.4.9-iw.10-x64.exe"] {
             assert_eq!(crate::iw::org::code_from_filename(name), None, "{name}");
         }
+    }
+
+    #[test]
+    fn a_signature_made_for_another_file_name_fails() {
+        let p = Package { signature: OTHER_NAME_SIG.into(), ..package() };
+        assert_eq!(verify(TEST_FILE, &p, TEST_KEY), Err(UpdateError::Signature));
+    }
+
+    #[test]
+    fn an_older_signed_package_cannot_be_passed_off_as_the_new_version() {
+        // Under the new name: the signature names the old file.
+        let p = Package { sha256: sha(OLD_FILE), signature: OLD_SIG.into(), ..package() };
+        assert_eq!(verify(OLD_FILE, &p, TEST_KEY), Err(UpdateError::Signature));
+        // Under its own name in a manifest of the new version: the name does not carry the offered version.
+        let old_url = "https://license.incorrectus.com/desktop/pomoc/IncorrectWebPomoc-1.4.9-iw.5-x64.exe";
+        let m = manifest("1.4.9-iw.7", None).replace(&package().url, old_url);
+        assert_eq!(offer(&m, "1.4.9-iw.6", "windows-x86_64"), Err(UpdateError::Address));
+    }
+
+    #[test]
+    fn other_files_of_the_update_server_are_never_offered() {
+        for url in [
+            "https://license.incorrectus.com/desktop/IncorrectWeb-windows-setup.exe",
+            "https://license.incorrectus.com/desktop/IncorrectWebPomoc-1.4.9-iw.7-x64.exe",
+            "https://license.incorrectus.com/desktop/pomoc/sub/IncorrectWebPomoc-1.4.9-iw.7-x64.exe",
+            "https://license.incorrectus.com/desktop/pomoc/IncorrectWeb_0.9.8_x64-setup.exe",
+            "https://license.incorrectus.com/desktop/pomoc/IncorrectWebPomoc-1.4.9-iw.70-x64.exe",
+        ] {
+            let m = manifest("1.4.9-iw.7", None).replace(&package().url, url);
+            assert_eq!(offer(&m, "1.4.9-iw.6", "windows-x86_64"), Err(UpdateError::Address), "{url}");
+        }
+    }
+
+    #[test]
+    fn the_verified_package_is_named_for_its_version() {
+        assert_eq!(verify(TEST_FILE, &package(), TEST_KEY), Ok(()));
+        let renamed = Package { url: package().url.replace("iw.7-x64", "iw.7-x86"), ..package() };
+        assert_eq!(verify(TEST_FILE, &renamed, TEST_KEY), Err(UpdateError::Signature), "the address names another file than the signature");
     }
 }

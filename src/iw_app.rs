@@ -187,7 +187,7 @@ pub fn check_update() -> hbb_common::ResultType<()> {
         return Ok(());
     };
     let url = iw::update::MANIFEST_URL;
-    let res = crate::hbbs_http::create_http_client_with_url(url).get(url).timeout(Duration::from_secs(30)).send()?;
+    let res = update_client()?.get(url).timeout(Duration::from_secs(30)).send()?;
     if !res.status().is_success() {
         hbb_common::bail!("IW: update manifest answered {}", res.status());
     }
@@ -201,6 +201,51 @@ pub fn check_update() -> hbb_common::ResultType<()> {
         Err(e) => hbb_common::bail!("IW: update manifest rejected: {e:?}"),
     }
     Ok(())
+}
+
+/// The client of the manifest and the packages: rustls with the system roots, no redirects, never RustDesk's client (it
+/// falls back to accepting invalid certificates and takes the proxy of RustDesk's settings).
+pub fn update_client() -> hbb_common::ResultType<reqwest::blocking::Client> {
+    Ok(reqwest::blocking::Client::builder()
+        .use_rustls_tls()
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(20))
+        .user_agent(format!("IncorrectWebPomoc/{}", iw::IW_VERSION))
+        .build()?)
+}
+
+/// The package of the offer, into memory (at most 512 MB).
+pub fn download_update(url: &str) -> hbb_common::ResultType<Vec<u8>> {
+    use std::io::Read;
+    const MAX: u64 = 512 * 1024 * 1024;
+    let res = update_client()?.get(url).timeout(Duration::from_secs(30 * 60)).send()?;
+    if !res.status().is_success() {
+        hbb_common::bail!("IW: the package answered {}", res.status());
+    }
+    let mut bytes = Vec::new();
+    res.take(MAX + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX {
+        hbb_common::bail!("IW: the package is larger than {MAX} bytes");
+    }
+    Ok(bytes)
+}
+
+/// Windows: the package written anew to `%ProgramData%\IncorrectWebPomoc\updates`, a folder of SYSTEM and the administrators.
+#[cfg(windows)]
+pub fn stage_update(name: &str, bytes: &[u8]) -> hbb_common::ResultType<std::path::PathBuf> {
+    use iw::update_file;
+    let program_data = std::env::var_os("ProgramData").map(std::path::PathBuf::from).unwrap_or_else(|| r"C:\ProgramData".into());
+    let dir = update_file::updates_dir(&program_data);
+    std::fs::create_dir_all(&dir)?;
+    for args in update_file::acl_commands(&dir) {
+        let ok = std::process::Command::new("icacls").args(&args).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status()?.success();
+        if !ok {
+            hbb_common::bail!("IW: icacls {:?} failed", args);
+        }
+    }
+    let path = dir.join(name);
+    update_file::write_fresh(&path, bytes)?;
+    Ok(path)
 }
 
 pub fn update_offer() -> Option<iw::update::Offer> {

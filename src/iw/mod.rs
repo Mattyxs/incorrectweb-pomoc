@@ -16,3 +16,4 @@ pub mod notify;
 pub mod scheme;
 pub mod policy;
 pub mod update;
+pub mod update_file;
