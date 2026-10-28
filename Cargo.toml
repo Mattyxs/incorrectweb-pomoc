@@ -71,6 +71,8 @@ rdev = { git = "https://github.com/rustdesk-org/rdev" }
 url = { version = "2.3", features = ["serde"] }
 crossbeam-queue = "0.3"
 hex = "0.4"
+# IW: signature of update packages (src/iw/update.rs)
+minisign-verify = "0.2"
 chrono = "0.4"
 cidr-utils = "0.5"
 fon = "0.6"

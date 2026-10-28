@@ -110,8 +110,8 @@ pub fn init() {
     }
     {
         let mut o = config::OVERWRITE_SETTINGS.write().unwrap();
-        for (k, v) in [(keys::OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION, "N"), ("allow-hide-cm", "N")] {
-            o.insert(k.to_owned(), v.to_owned());
+        for (k, v) in iw::policy::OVERWRITES {
+            o.insert((*k).to_owned(), (*v).to_owned());
         }
     }
     {
@@ -171,6 +171,40 @@ fn register_url_scheme() {
     if let Ok((key, _)) = hcu.create_subkey(&command_path) {
         key.set_value("", &format!("\"{}\" \"%1\"", exe.display())).ok();
     }
+}
+
+// ---- updates (src/iw/update.rs, src/updater.rs) ----------------------------------------------------------
+
+lazy_static::lazy_static! {
+    /// The newer version the last check found for this computer.
+    static ref UPDATE_OFFER: Mutex<Option<iw::update::Offer>> = Mutex::new(None);
+}
+
+/// Reads the manifest of IncorrectWeb (`pomoc.json`) and keeps what it offers to this version on this platform.
+pub fn check_update() -> hbb_common::ResultType<()> {
+    *UPDATE_OFFER.lock().unwrap() = None;
+    let Some(platform) = iw::update::platform_key(std::env::consts::OS, std::env::consts::ARCH) else {
+        return Ok(());
+    };
+    let url = iw::update::MANIFEST_URL;
+    let res = crate::hbbs_http::create_http_client_with_url(url).get(url).timeout(Duration::from_secs(30)).send()?;
+    if !res.status().is_success() {
+        hbb_common::bail!("IW: update manifest answered {}", res.status());
+    }
+    match iw::update::offer(&res.text()?, iw::IW_VERSION, platform) {
+        Ok(Some(offer)) => {
+            log::info!("IW: version {} available ({})", offer.version, if offer.required { "required" } else { "newer" });
+            *UPDATE_OFFER.lock().unwrap() = Some(offer);
+        }
+        Ok(None) => log::debug!("IW: no newer version"),
+        Err(iw::update::UpdateError::NoPackage) => log::info!("IW: no package for {platform} yet"),
+        Err(e) => hbb_common::bail!("IW: update manifest rejected: {e:?}"),
+    }
+    Ok(())
+}
+
+pub fn update_offer() -> Option<iw::update::Offer> {
+    UPDATE_OFFER.lock().unwrap().clone()
 }
 
 // ---- organization --------------------------------------------------------------------------------

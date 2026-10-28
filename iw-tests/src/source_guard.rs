@@ -183,3 +183,24 @@ fn release_waits_for_flutter_tests() {
     let needs = wf.lines().find(|l| l.trim_start().starts_with("needs: [unit-tests")).expect("release needs");
     assert!(needs.contains("flutter-tests"), "release must wait for flutter-tests: {needs}");
 }
+
+#[test]
+fn updates_come_from_the_incorrectweb_manifest() {
+    let common = repo_file("src/common.rs");
+    let check = common.split("pub fn do_check_software_update").nth(1).expect("do_check_software_update").split("\n}\n").next().unwrap();
+    assert!(check.contains("iw_app::check_update()"), "do_check_software_update asks the IncorrectWeb manifest: {check}");
+    let updater = repo_file("src/updater.rs");
+    assert!(updater.contains("iw_app::update_offer()"), "the package comes from the offer of the manifest");
+    assert!(!updater.contains("rustdesk-{}"), "no RustDesk file names");
+    assert!(!updater.contains("replace(\"tag\", \"download\")"), "no GitHub release pages of RustDesk");
+}
+
+#[test]
+fn nothing_runs_a_package_before_it_is_verified() {
+    let updater = repo_file("src/updater.rs");
+    let check = updater.split("fn check_update(").nth(1).expect("check_update").split("\n}\n").next().unwrap();
+    let verify = check.find("iw::update::verify(").expect("check_update verifies the package");
+    let run = check.find("update_new_version(").expect("check_update installs");
+    assert!(verify < run, "the signature is checked before the package runs");
+    assert!(!check.contains("update_msi"), "Pomoc is published as .exe only: never the MSI path");
+}

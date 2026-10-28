@@ -949,11 +949,11 @@ pub fn check_software_update() {
 }
 
 // IW: no version check against api.rustdesk.com: it sends a device fingerprint and offers RustDesk downloads.
-// Updates of IncorrectWeb Pomoc come from its own releases.
-#[tokio::main(flavor = "current_thread")]
-pub async fn do_check_software_update() -> hbb_common::ResultType<()> {
+// Updates of IncorrectWeb Pomoc come from the manifest of IncorrectWeb (src/iw/update.rs, iw_app::check_update);
+// the RustDesk offer in the UI stays empty.
+pub fn do_check_software_update() -> hbb_common::ResultType<()> {
     *SOFTWARE_UPDATE_URL.lock().unwrap() = "".to_string();
-    Ok(())
+    crate::iw_app::check_update()
 }
 
 #[inline]

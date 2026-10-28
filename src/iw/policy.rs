@@ -30,9 +30,21 @@ pub fn lan_discovery_enabled(option_value: &str) -> bool {
     option_value == "Y"
 }
 
+/// Options nobody can change on the computer (written to `OVERWRITE_SETTINGS`).
+/// Updates of Pomoc come signed from the update server of IncorrectWeb and install when no session is on (src/updater.rs).
+pub const OVERWRITES: &[(&str, &str)] = &[("allow-remote-config-modification", "N"), ("allow-hide-cm", "N"), ("allow-auto-update", "Y")];
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn updates_install_by_themselves_and_settings_stay_closed() {
+        let get = |k: &str| OVERWRITES.iter().find(|(key, _)| *key == k).map(|(_, v)| *v);
+        assert_eq!(get("allow-auto-update"), Some("Y"), "updates of Pomoc cannot be turned off");
+        assert_eq!(get("allow-remote-config-modification"), Some("N"));
+        assert_eq!(get("allow-hide-cm"), Some("N"));
+    }
 
     #[test]
     fn display_defaults_fit_window_and_show_client_cursor() {
