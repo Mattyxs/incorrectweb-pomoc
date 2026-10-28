@@ -231,3 +231,19 @@ fn the_package_runs_from_the_handle_that_was_verified() {
     assert!(check.contains("update_file::open_locked("));
     assert!(read < verify && verify < run, "read, verify, then run");
 }
+
+#[test]
+fn no_old_update_path_of_rustdesk_in_the_ui_bridge() {
+    let ffi = repo_file("src/flutter_ffi.rs");
+    for key in ["\"download-new-version\"", "\"update-me\"", "\"extract-update-dmg\""] {
+        assert!(!ffi.contains(key), "{key}: the UI must not download or run update files");
+    }
+}
+
+#[test]
+fn the_installer_command_line_is_quoted() {
+    let updater = repo_file("src/updater.rs");
+    assert!(!updater.contains("format!(\"{} --update\""), "unquoted path in the command line");
+    assert!(updater.contains("update_file::install_command("));
+    assert!(!repo_file("src/iw_app.rs").contains("ProgramData"), "the packages live in the installation folder");
+}

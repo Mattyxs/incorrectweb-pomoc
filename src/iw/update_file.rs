@@ -6,19 +6,30 @@ use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
 
-/// `<ProgramData>\IncorrectWebPomoc\updates` (no space: the installer command line is not quoted, src/updater.rs).
-pub fn updates_dir(program_data: &Path) -> PathBuf {
-    program_data.join("IncorrectWebPomoc").join("updates")
+/// `<installation folder of Pomoc>\updates`: Program Files, written only by the administrators and SYSTEM.
+pub fn updates_dir(install_dir: &Path) -> PathBuf {
+    install_dir.join("updates")
 }
 
-/// `icacls` calls that leave the folder to SYSTEM and the administrators only (owner SYSTEM, no inherited rights).
-pub fn acl_commands(dir: &Path) -> Vec<Vec<String>> {
-    let d = dir.to_string_lossy().to_string();
-    let s = |v: &str| v.to_owned();
-    vec![
-        vec![d.clone(), s("/setowner"), s("*S-1-5-18")],
-        vec![d, s("/inheritance:r"), s("/grant:r"), s("*S-1-5-18:(OI)(CI)F"), s("/grant:r"), s("*S-1-5-32-544:(OI)(CI)F")],
-    ]
+/// No level of `path` is a symbolic link or a junction (std reports both through `is_symlink`), so the package cannot be
+/// written or run somewhere else.
+pub fn check_no_links(path: &Path) -> io::Result<()> {
+    for level in path.ancestors().filter(|p| !p.as_os_str().is_empty()) {
+        match std::fs::symlink_metadata(level) {
+            Ok(m) if m.file_type().is_symlink() => {
+                return Err(io::Error::new(io::ErrorKind::Other, format!("{} is a link", level.display())));
+            }
+            Ok(_) => {}
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
+}
+
+/// The command line of the installer: the path in quotes (the folder may have spaces, `C:\Program Files\…`).
+pub fn install_command(exe: &Path) -> String {
+    format!("\"{}\" --update", exe.display())
 }
 
 /// Removes what is there and writes `bytes` as a new file.
@@ -67,24 +78,32 @@ mod tests {
     }
 
     #[test]
-    fn the_folder_is_under_program_data_without_spaces() {
-        let d = updates_dir(Path::new(r"C:\ProgramData"));
-        assert_eq!(d, Path::new(r"C:\ProgramData").join("IncorrectWebPomoc").join("updates"));
-        assert!(!d.to_string_lossy().contains(' '));
+    fn the_folder_is_in_the_installation_folder() {
+        let d = updates_dir(Path::new(r"C:\Program Files\IncorrectWebPomoc"));
+        assert_eq!(d, Path::new(r"C:\Program Files\IncorrectWebPomoc").join("updates"));
     }
 
     #[test]
-    fn only_system_and_the_administrators_keep_rights() {
-        let d = Path::new(r"C:\ProgramData\IncorrectWebPomoc\updates");
-        let cmds = acl_commands(d);
-        let p = d.to_string_lossy().to_string();
-        assert_eq!(
-            cmds,
-            vec![
-                vec![p.clone(), "/setowner".into(), "*S-1-5-18".into()],
-                vec![p, "/inheritance:r".into(), "/grant:r".into(), "*S-1-5-18:(OI)(CI)F".into(), "/grant:r".into(), "*S-1-5-32-544:(OI)(CI)F".into()],
-            ]
-        );
+    fn the_installer_path_is_quoted() {
+        let exe = Path::new("C:/Program Files/IncorrectWebPomoc/updates/IncorrectWebPomoc-1.4.9-iw.7-x64.exe");
+        assert_eq!(install_command(exe), "\"C:/Program Files/IncorrectWebPomoc/updates/IncorrectWebPomoc-1.4.9-iw.7-x64.exe\" --update");
+    }
+
+    #[test]
+    fn a_link_on_any_level_is_refused() {
+        let d = std::fs::canonicalize(dir("links")).unwrap();
+        let real = d.join("real");
+        std::fs::create_dir_all(real.join("updates")).unwrap();
+        assert!(check_no_links(&real.join("updates")).is_ok());
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(&real, d.join("link")).unwrap();
+            assert!(check_no_links(&d.join("link").join("updates")).is_err(), "a linked parent");
+            std::fs::write(real.join("file.exe"), b"x").unwrap();
+            std::os::unix::fs::symlink(real.join("file.exe"), real.join("updates").join("p.exe")).unwrap();
+            assert!(check_no_links(&real.join("updates").join("p.exe")).is_err(), "a linked file");
+        }
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]

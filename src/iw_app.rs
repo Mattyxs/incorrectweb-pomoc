@@ -230,21 +230,19 @@ pub fn download_update(url: &str) -> hbb_common::ResultType<Vec<u8>> {
     Ok(bytes)
 }
 
-/// Windows: the package written anew to `%ProgramData%\IncorrectWebPomoc\updates`, a folder of SYSTEM and the administrators.
+/// Windows: the package written anew to `<installation folder>\\updates` (Program Files: written only by the
+/// administrators and SYSTEM), with no symbolic link or junction on the way.
 #[cfg(windows)]
 pub fn stage_update(name: &str, bytes: &[u8]) -> hbb_common::ResultType<std::path::PathBuf> {
     use iw::update_file;
-    let program_data = std::env::var_os("ProgramData").map(std::path::PathBuf::from).unwrap_or_else(|| r"C:\ProgramData".into());
-    let dir = update_file::updates_dir(&program_data);
+    let (_, install_dir, _, _) = crate::platform::windows::get_install_info();
+    let dir = update_file::updates_dir(std::path::Path::new(&install_dir));
+    update_file::check_no_links(&dir)?;
     std::fs::create_dir_all(&dir)?;
-    for args in update_file::acl_commands(&dir) {
-        let ok = std::process::Command::new("icacls").args(&args).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status()?.success();
-        if !ok {
-            hbb_common::bail!("IW: icacls {:?} failed", args);
-        }
-    }
+    update_file::check_no_links(&dir)?;
     let path = dir.join(name);
     update_file::write_fresh(&path, bytes)?;
+    update_file::check_no_links(&path)?;
     Ok(path)
 }
 

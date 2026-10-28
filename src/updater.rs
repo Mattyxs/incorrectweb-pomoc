@@ -210,7 +210,8 @@ fn update_new_version(update_msi: bool, version: &str, file_path: &PathBuf) {
                 };
                 let update_launched = match crate::platform::launch_privileged_process(
                     session_id,
-                    &format!("{} --update", p),
+                    // IW: the path in quotes (Program Files has a space).
+                    &crate::iw::update_file::install_command(file_path),
                 ) {
                     Ok(h) => {
                         if h.is_null() {
