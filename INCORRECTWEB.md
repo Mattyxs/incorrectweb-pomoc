@@ -40,5 +40,7 @@ Every change is marked `// IW:` (Rust, Dart). Pure logic is in `src/iw/` and is 
 
 ## Notes
 - Device key: the Ed25519 pair RustDesk keeps for the computer (shared by user and service processes).
+- `state` has its own backoff (1 s, 2 s, 4 s ... 300 s, `api::StateSync`); 401 on `state` means the registration was reset: hello again at once.
+- Key mismatch (409 on hello): the banner shows the key fingerprint (`api::key_fingerprint`, SHA-256 of the base64 public key, first 16 hex in groups of 4), the same form Connect shows the administrator next to the waiting key.
 - Tray: tooltip only, no warning dot.
 - Organization code: the name found on the server is shown and must be confirmed before anything is applied. Plain http to localhost is accepted in test builds only.

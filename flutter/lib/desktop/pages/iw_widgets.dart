@@ -20,7 +20,7 @@ import 'package:url_launcher/url_launcher.dart';
 export 'package:flutter_hbb/iw/iw_brand.dart';
 export 'package:flutter_hbb/iw/iw_tokens.dart';
 
-/// Status from the Rust side: configured, org, unattended, keyMismatch, version, name, source.
+/// Status from the Rust side: configured, org, unattended, keyMismatch, keyMismatchText, version, name, source.
 Map<String, dynamic> iwStatus() {
   try {
     return Map<String, dynamic>.from(jsonDecode(bind.mainIwStatus()));
@@ -487,6 +487,8 @@ class _IwUnattendedBarState extends State<IwUnattendedBar> {
   Timer? _timer;
   bool _on = iwStatus()['unattended'] == true;
   bool _mismatch = iwStatus()['keyMismatch'] == true;
+  // IW: the text with the key fingerprint the administrator compares in Connect.
+  String _mismatchText = (iwStatus()['keyMismatchText'] as String?) ?? '';
 
   @override
   void initState() {
@@ -495,10 +497,12 @@ class _IwUnattendedBarState extends State<IwUnattendedBar> {
       final s = iwStatus();
       final on = s['unattended'] == true;
       final mismatch = s['keyMismatch'] == true;
-      if ((on != _on || mismatch != _mismatch) && mounted) {
+      final text = (s['keyMismatchText'] as String?) ?? '';
+      if ((on != _on || mismatch != _mismatch || text != _mismatchText) && mounted) {
         setState(() {
           _on = on;
           _mismatch = mismatch;
+          _mismatchText = text;
         });
       }
     });
@@ -516,7 +520,9 @@ class _IwUnattendedBarState extends State<IwUnattendedBar> {
     final p = IwPalette.of(context);
     if (_mismatch) {
       children.add(_bar(p.dangerSoft, p.dangerInk, p.danger,
-          'To urządzenie jest już zarejestrowane — poproś konsultanta o reset.',
+          _mismatchText.isNotEmpty
+              ? _mismatchText
+              : 'To urządzenie jest już zarejestrowane z innym kluczem. Poproś konsultanta o pomoc.',
           null,
           null));
     }

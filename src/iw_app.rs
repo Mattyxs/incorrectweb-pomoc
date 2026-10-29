@@ -329,6 +329,7 @@ pub fn status_json() -> String {
         "org": get(OPT_ORG_NAME),
         "unattended": get(OPT_UNATTENDED) == "Y",
         "keyMismatch": get(OPT_KEY_MISMATCH) == "Y",
+        "keyMismatchText": api::key_mismatch_message(&device_keys().map(|(pk, _)| api::key_fingerprint(&pk)).unwrap_or_default()),
         "panel": get(OPT_PANEL_URL),
         "primary": get(OPT_BRAND_PRIMARY),
         "accent": get(OPT_BRAND_ACCENT),
@@ -515,7 +516,7 @@ async fn worker() {
     let mut hello_key = String::new();
     let mut next_hello = Instant::now();
     let mut hello_backoff = Backoff::default();
-    let mut reported_unattended: Option<bool> = None;
+    let mut state_sync = api::StateSync::default();
     let mut registered = false;
     let mut queue_backoff = Backoff::default();
     let mut next_queue = Instant::now();
@@ -528,7 +529,7 @@ async fn worker() {
         if key != hello_key {
             hello_key = key;
             next_hello = Instant::now();
-            reported_unattended = None;
+            state_sync = api::StateSync::default();
             registered = false;
         }
         if Instant::now() >= next_hello {
@@ -549,7 +550,8 @@ async fn worker() {
             }
         }
         let unattended = unattended_enabled();
-        if registered && reported_unattended != Some(unattended) {
+        // IW: own backoff for state; 401 = the registration was reset, say hello again.
+        if registered && state_sync.due(unattended, Instant::now()) {
             let req = api::build_request(
                 &client.sk,
                 &client.api,
@@ -558,8 +560,10 @@ async fn worker() {
                 now_secs(),
                 api::state_body(unattended),
             );
-            if matches!(api::classify(&client.transport.post(&req).await), Sent::Done) {
-                reported_unattended = Some(unattended);
+            let res = client.transport.post(&req).await;
+            if state_sync.result(unattended, &res, Instant::now()) == api::StateOutcome::Unregistered {
+                registered = false;
+                next_hello = Instant::now();
             }
         }
         if Instant::now() >= next_queue {

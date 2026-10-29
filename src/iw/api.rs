@@ -264,6 +264,75 @@ pub fn state_body(on: bool) -> String {
     serde_json::json!({ "unattended": on }).to_string()
 }
 
+/// Fingerprint of the device key as Connect shows it to the administrator (Urządzenia, „Nowy klucz czeka”): SHA-256
+/// of the public key as sent in hello, first 16 hex digits, upper case, in groups of 4 (`AB12 CD34 EF56 AB12`).
+pub fn key_fingerprint(pk: &sign::PublicKey) -> String {
+    use sha2::{Digest, Sha256};
+    let hex = hex::encode_upper(Sha256::digest(super::sign::public_key_b64(pk).as_bytes()));
+    hex[..16].as_bytes().chunks(4).map(|c| String::from_utf8_lossy(c).into_owned()).collect::<Vec<_>>().join(" ")
+}
+
+/// The banner when hello got 409 key_mismatch: the administrator compares this fingerprint with the waiting key in Connect.
+pub fn key_mismatch_message(fingerprint: &str) -> String {
+    if fingerprint.is_empty() {
+        "To urządzenie jest już zarejestrowane z innym kluczem. Poproś konsultanta o pomoc.".to_owned()
+    } else {
+        format!("To urządzenie jest już zarejestrowane z innym kluczem. Podaj konsultantowi odcisk klucza: {fingerprint}.")
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StateOutcome {
+    Reported,
+    /// No network, 5xx, 429 or another refusal: try again after the backoff.
+    Retry,
+    /// 401: the server no longer knows this key (registration reset): say hello again.
+    Unregistered,
+}
+
+/// When to send `state`: once per value, with its own backoff (1 s, 2 s, 4 s ... up to 300 s) after a failure.
+/// A new value is sent at once and starts the backoff over.
+#[derive(Default)]
+pub struct StateSync {
+    reported: Option<bool>,
+    tried: Option<bool>,
+    wait_until: Option<std::time::Instant>,
+    backoff: Backoff,
+}
+
+impl StateSync {
+    pub fn due(&mut self, want: bool, now: std::time::Instant) -> bool {
+        if self.reported == Some(want) {
+            return false;
+        }
+        if self.tried != Some(want) {
+            self.tried = Some(want);
+            self.wait_until = None;
+            self.backoff.reset();
+        }
+        self.wait_until.map_or(true, |t| now >= t)
+    }
+
+    pub fn result(&mut self, want: bool, res: &Result<HttpResponse, String>, now: std::time::Instant) -> StateOutcome {
+        match res {
+            Ok(r) if r.status == 200 => {
+                self.reported = Some(want);
+                self.wait_until = None;
+                self.backoff.reset();
+                StateOutcome::Reported
+            }
+            Ok(r) if r.status == 401 => {
+                *self = Self::default();
+                StateOutcome::Unregistered
+            }
+            _ => {
+                self.wait_until = Some(now + self.backoff.next_delay());
+                StateOutcome::Retry
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -522,6 +591,74 @@ mod tests {
         assert_eq!(v["publicKey"], super::super::sign::public_key_b64(&pk));
         assert_eq!(v["appVersion"], "1.4.9-iw.1");
         assert_eq!(state_body(true), r#"{"unattended":true}"#);
+    }
+
+    #[test]
+    fn key_fingerprint_is_the_one_connect_shows_the_administrator() {
+        // sha256 of the public key as sent in hello (base64 text), first 16 hex, upper case, groups of 4
+        use hbb_common::base64::{engine::general_purpose::STANDARD, Engine};
+        let bytes = STANDARD.decode("A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=").unwrap();
+        let pk = sign::PublicKey::from_slice(&bytes).unwrap();
+        assert_eq!(key_fingerprint(&pk), "FF73 A064 7BBC 29AA");
+    }
+
+    #[test]
+    fn key_mismatch_message_names_the_fingerprint() {
+        assert_eq!(
+            key_mismatch_message("FF73 A064 7BBC 29AA"),
+            "To urządzenie jest już zarejestrowane z innym kluczem. Podaj konsultantowi odcisk klucza: FF73 A064 7BBC 29AA."
+        );
+        assert_eq!(key_mismatch_message(""), "To urządzenie jest już zarejestrowane z innym kluczem. Poproś konsultanta o pomoc.");
+    }
+
+    fn res(status: u16) -> Result<HttpResponse, String> {
+        Ok(HttpResponse { status, body: String::new() })
+    }
+
+    #[test]
+    fn state_retry_backs_off_1_2_4_up_to_300_seconds() {
+        let t0 = std::time::Instant::now();
+        let mut s = StateSync::default();
+        assert!(s.due(true, t0));
+        assert_eq!(s.result(true, &res(503), t0), StateOutcome::Retry);
+        assert!(!s.due(true, t0), "not again in the same second");
+        assert!(s.due(true, t0 + Duration::from_secs(1)));
+        let mut waits = vec![];
+        let mut now = t0;
+        for _ in 0..12 {
+            s.result(true, &Err("no network".into()), now);
+            let mut d = 0;
+            while !s.due(true, now + Duration::from_secs(d)) {
+                d += 1;
+            }
+            waits.push(d);
+            now += Duration::from_secs(d);
+        }
+        assert_eq!(waits, vec![2, 4, 8, 16, 32, 64, 128, 256, 300, 300, 300, 300]);
+    }
+
+    #[test]
+    fn state_reported_once_and_again_after_a_change() {
+        let t0 = std::time::Instant::now();
+        let mut s = StateSync::default();
+        assert!(s.due(true, t0));
+        assert_eq!(s.result(true, &res(200), t0), StateOutcome::Reported);
+        assert!(!s.due(true, t0 + Duration::from_secs(5)));
+        // a change while waiting after a failure is sent at once, the waiting starts over
+        assert!(s.due(false, t0));
+        assert_eq!(s.result(false, &res(429), t0), StateOutcome::Retry);
+        assert!(!s.due(false, t0));
+        assert!(!s.due(true, t0), "changed back: the server already has true");
+    }
+
+    #[test]
+    fn state_401_means_not_registered_any_more() {
+        let t0 = std::time::Instant::now();
+        let mut s = StateSync::default();
+        assert!(s.due(true, t0));
+        assert_eq!(s.result(true, &res(401), t0), StateOutcome::Unregistered);
+        // after the next hello it starts from scratch
+        assert!(s.due(true, t0));
     }
 
     #[test]
