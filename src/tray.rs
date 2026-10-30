@@ -40,8 +40,15 @@ fn make_tray() -> hbb_common::ResultType<()> {
         icon = include_bytes!("../res/tray-icon.ico");
     }
 
+    // IW: on macOS the icon is a template (only its shape counts), so the full app icon from the
+    // assets would be a filled square: macOS always takes the glyph above (res/make-tray-icons.py)
+    #[cfg(target_os = "macos")]
+    let asset_icon: Option<image::DynamicImage> = None;
+    #[cfg(not(target_os = "macos"))]
+    let asset_icon = load_icon_from_asset();
+
     let (icon_rgba, icon_width, icon_height) = {
-        let image = load_icon_from_asset()
+        let image = asset_icon
             .unwrap_or(image::load_from_memory(icon).context("Failed to open icon path")?)
             .into_rgba8();
         let (width, height) = image.dimensions();
@@ -70,30 +77,12 @@ fn make_tray() -> hbb_common::ResultType<()> {
     } else {
         tray_menu.append_items(&[&open_i]).ok();
     }
-    let tooltip_base = |count: usize| {
-        if count == 0 {
-            format!(
-                "{} {}",
-                crate::get_app_name(),
-                translate("Service is running".to_owned()),
-            )
-        } else {
-            format!(
-                "{} - {}\n{}",
-                crate::get_app_name(),
-                translate("Ready".to_owned()),
-                translate("{".to_string() + &format!("{count}") + "} sessions"),
-            )
-        }
-    };
-    // IW: the tooltip says when unattended access is switched on
+    // IW: product name with its space, Polish plural of sessions, a line when unattended access is on
     let tooltip = move |count: usize| {
-        let base = tooltip_base(count);
-        if hbb_common::config::Config::get_option(crate::iw_app::OPT_UNATTENDED) == "Y" {
-            format!("{base}\n{} — dostęp bez akceptacji WŁĄCZONY", crate::iw::DISPLAY_NAME)
-        } else {
-            base
-        }
+        crate::iw::tray::tooltip(
+            count,
+            hbb_common::config::Config::get_option(crate::iw_app::OPT_UNATTENDED) == "Y",
+        )
     };
     let mut _tray_icon: Arc<Mutex<Option<TrayIcon>>> = Default::default();
 
@@ -279,6 +268,7 @@ async fn start_query_session_count(sender: std::sync::mpsc::Sender<Data>) {
     }
 }
 
+#[cfg(not(target_os = "macos"))] // IW: macOS uses the template glyph
 fn load_icon_from_asset() -> Option<image::DynamicImage> {
     let Some(path) = std::env::current_exe().map_or(None, |x| x.parent().map(|x| x.to_path_buf()))
     else {

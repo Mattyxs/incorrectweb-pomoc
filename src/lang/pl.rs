@@ -496,7 +496,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("resolution_fit_local_tip", "Dostosuj rozdzielczość lokalną"),
         ("resolution_custom_tip", "Rozdzielczość niestandardowa"),
         ("Collapse toolbar", "Zwiń pasek narzędzi"),
-        ("Accept and Elevate", "Akceptuj i Podnieś uprawnienia"),
+        // IW: lower case inside the sentence
+        ("Accept and Elevate", "Akceptuj i podnieś uprawnienia"),
         ("accept_and_elevate_btn_tooltip", "Zaakceptuj połączenie i podnieś uprawnienia UAC"),
         ("clipboard_wait_response_timeout_tip", "Upłynął limit czasu oczekiwania na schowek."),
         ("Incoming connection", "Połączenie przychodzące"),

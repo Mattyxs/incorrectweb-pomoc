@@ -494,14 +494,14 @@ class _CmHeaderState extends State<_CmHeader>
                 if (client.type_() == ClientType.file)
                   FittedBox(
                     child: Text(
-                      translate("File Transfer"),
+                      translate("Transfer file"), // IW: the key that pl.rs has
                       style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ),
                 if (client.type_() == ClientType.camera)
                   FittedBox(
                     child: Text(
-                      translate("View Camera"),
+                      translate("View camera"), // IW: the key that pl.rs has
                       style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ),
@@ -615,7 +615,7 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
       Function(bool)? onTap, String tooltipText,
       {required bool canModify}) {
     return Tooltip(
-      message: "$tooltipText: ${enabled ? "ON" : "OFF"}",
+      message: "$tooltipText: ${enabled ? "włączone" : "wyłączone"}", // IW: Polish
       waitDuration: Duration.zero,
       // IW: on = brand fill with a white icon, off = soft tile with a muted icon
       child: Container(

@@ -18,9 +18,10 @@ Every change is marked `// IW:` (Rust, Dart). Pure logic is in `src/iw/` and is 
 - `src/ipc.rs`, `src/ui_cm_interface.rs`: `iw` data for the consent window, session log, notification.
 - `src/server/connection.rs`: consent policy (click always, verify, unattended only when allowed), session reports; the pointer shown to the client ("show my cursor") is brand orange with the consultant name.
 - `src/flutter_ffi.rs`: `main_iw_*` functions.
-- `src/tray.rs`: tooltip of unattended access.
+- `src/tray.rs`, `src/iw/tray.rs`: tooltip text (product name with its space, Polish plural of sessions, a line when unattended access is on); on macOS the menu bar always takes the template glyph, never the full app icon of the assets (as a template it would be a filled square).
 - `src/lang.rs`: product name in texts.
-- `src/lang/pl.rs`: "Show my cursor" reads "Wskazywanie (bez sterowania)".
+- `src/lang/pl.rs`: "Show my cursor" reads "Wskazywanie (bez sterowania)"; "Akceptuj i podnieś uprawnienia".
+- `flutter/lib/desktop/pages/server_page.dart` (connection window of the client): keys `Transfer file` and `View camera` (the upstream `File Transfer` and `View Camera` are not in `src/lang`, so they stayed English), permission tooltips "włączone"/"wyłączone".
 - `src/iw/policy.rs`, `src/iw_app.rs`: display defaults (fit to window, client cursor shown), pointer color and caption.
 - `flutter/lib/desktop/pages/iw_widgets.dart`: new (consent banner, organization screen, settings, link dialog, about).
 - `flutter/lib/iw/iw_brand.dart`: new (brand constants, product name, label of the client cursor); no FFI import, used by the Flutter tests in `flutter/test/iw_*`.
@@ -29,7 +30,7 @@ Every change is marked `// IW:` (Rust, Dart). Pure logic is in `src/iw/` and is 
 - `flutter/lib/desktop/widgets/tabbar_widget.dart`: product name instead of "RustDesk".
 - `flutter/lib/common.dart` (also brand colors, Onest, soft violet highlight), `desktop/pages/{server_page,desktop_home_page,desktop_setting_page}.dart`, `models/server_model.dart`: hooks into the widgets.
 - `flutter/macos/*`, `flutter/windows/runner/Runner.rc`, `build.py`: names, bundle id, URL scheme.
-- `res/*`, `flutter/macos/Runner/AppIcon.icns`, `flutter/windows/runner/resources/app_icon.ico`, `flutter/assets/icon.png`: app icon of the IncorrectWeb apps (apps/desktop of incorrectus-platform); `flutter/assets/iw_logo.png`: Incorrectus logo (packages/ui). Both PNGs are force-added (`*png` is ignored).
+- `res/*`, `flutter/macos/Runner/AppIcon.icns`, `flutter/windows/runner/resources/app_icon.ico`, `flutter/assets/icon.png`: app icon of the IncorrectWeb apps (apps/desktop of incorrectus-platform); `flutter/assets/iw_logo.png`: Incorrectus logo (packages/ui). Both PNGs are force-added (`*png` is ignored). Tray icons `res/tray-icon.ico` (the 32 px app icon) and `res/mac-tray-{dark,light}-x2.png` (template glyph "iW" with the underline) are made from the app icon by `python3 res/make-tray-icons.py`, which also writes `res/tray-icons.sha256`; iw-tests fails when the app icon changes without them.
 - `flutter/lib/iw/iw_brand.dart`: `IwBranding`, the one place for name, main and accent color, light/dark logo and app icon (Incorrectus defaults; `IwBranding.apply()` before runApp for the branding of the organization).
 - `flutter/lib/iw/iw_tokens.dart`, `flutter/test/iw_tokens_test.dart`: tokens of the IncorrectWeb apps (light and dark, = theme.css of incorrectus-platform), contrast tests, logo tile and app icon widgets.
 - Look of the IncorrectWeb apps: `common.dart` (both themes from one builder on the tokens), `desktop_home_page.dart` + `iw_widgets.dart` (dark column with brand, number and password, status, settings; organization screen, banners, consent card, "O programie" with license and origin), `connection_page.dart`, `peer_tab_page.dart`, `peer_card.dart`, `peer_tab_model.dart` (line icons), `desktop_setting_page.dart` (navigation and cards), `server_page.dart` (consent window), `remote_toolbar.dart` (dark violet toolbar), `tabbar_widget.dart`, `desktop_tab_page.dart`.

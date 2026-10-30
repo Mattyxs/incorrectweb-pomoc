@@ -247,3 +247,58 @@ fn the_installer_command_line_is_quoted() {
     assert!(updater.contains("update_file::install_command("));
     assert!(!repo_file("src/iw_app.rs").contains("ProgramData"), "the packages live in the installation folder");
 }
+
+fn repo_bytes(rel: &str) -> Vec<u8> {
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(rel);
+    std::fs::read(&p).unwrap_or_else(|e| panic!("{}: {e}", p.display()))
+}
+
+#[test]
+fn tray_icons_are_made_from_the_current_app_icon() {
+    use sha2::{Digest, Sha256};
+    // res/make-tray-icons.py writes the tray icons and res/tray-icons.sha256 (shasum format);
+    // a new app icon without new tray icons fails here (the tray kept the icon of 19.10 until iw.8)
+    let stamp = repo_file("res/tray-icons.sha256");
+    let mut seen = Vec::new();
+    for line in stamp.lines().filter(|l| !l.trim().is_empty()) {
+        let (hash, path) = line.split_once("  ").unwrap_or_else(|| panic!("bad line: {line}"));
+        let now = hex::encode(Sha256::digest(repo_bytes(path)));
+        assert_eq!(hash, now, "{path} changed: run python3 res/make-tray-icons.py");
+        seen.push(path.to_owned());
+    }
+    for f in ["res/icon.png", "res/32x32.png", "res/tray-icon.ico", "res/mac-tray-dark-x2.png", "res/mac-tray-light-x2.png"] {
+        assert!(seen.iter().any(|s| s == f), "{f} missing in res/tray-icons.sha256");
+    }
+    // Windows: the icon in the tray is the 32 px app icon, byte for byte (one PNG entry after the 22-byte ICO header)
+    let ico = repo_bytes("res/tray-icon.ico");
+    assert_eq!(&ico[..6], &[0, 0, 1, 0, 1, 0], "an ICO with one image");
+    assert_eq!(&ico[22..], &repo_bytes("res/32x32.png")[..], "tray-icon.ico is res/32x32.png");
+}
+
+#[test]
+fn macos_tray_uses_the_template_glyph_not_the_app_icon() {
+    let tray = repo_file("src/tray.rs");
+    // a template image keeps only the shape: the full app icon from the assets would be a filled square
+    assert!(tray.contains("let asset_icon: Option<image::DynamicImage> = None;"), "macOS must not take assets/icon.png");
+    assert!(tray.contains("asset_icon\n"), "the asset icon goes through asset_icon");
+}
+
+#[test]
+fn tray_tooltip_comes_from_iw_tray() {
+    let tray = repo_file("src/tray.rs");
+    assert!(tray.contains("crate::iw::tray::tooltip("), "the tooltip text lives in src/iw/tray.rs");
+    assert!(!tray.contains('\u{2014}'), "no long dash in the tray texts");
+}
+
+#[test]
+fn connection_window_texts_are_polish() {
+    let cm = repo_file("flutter/lib/desktop/pages/server_page.dart");
+    // keys that do not exist in src/lang (upstream typos) stay English
+    for key in ["translate(\"File Transfer\")", "translate(\"View Camera\")"] {
+        assert!(!cm.contains(key), "{key}: not a key of src/lang/pl.rs");
+    }
+    assert!(cm.contains("translate(\"Transfer file\")") && cm.contains("translate(\"View camera\")"));
+    assert!(!cm.contains("\"ON\" : \"OFF\""), "permission tooltips in Polish");
+    let pl = repo_file("src/lang/pl.rs");
+    assert!(pl.contains("(\"Accept and Elevate\", \"Akceptuj i podnieś uprawnienia\")"));
+}
