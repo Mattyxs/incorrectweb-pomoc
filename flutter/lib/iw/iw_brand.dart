@@ -56,7 +56,7 @@ class IwBranding {
 
   /// Defaults: Incorrectus / IncorrectWeb (logo of packages/ui, icon of apps/desktop).
   static const IwBranding incorrectus = IwBranding(
-    name: 'IncorrectWeb Pomoc',
+    name: 'GoCorrect Pomoc',
     company: 'Incorrectus',
     primary: Color(0xFF431C77),
     accent: Color(0xFFEF7D1D),
@@ -118,7 +118,7 @@ const Color kIwVioletOnDark = Color(0xFFB39BFF);
 const Color kIwDarkBackground = Color(0xFF0F0A1C);
 
 /// Product name for texts (the executable and window title are `IncorrectWebPomoc`, see APP_NAME).
-const String kIwProductName = 'IncorrectWeb Pomoc';
+const String kIwProductName = 'GoCorrect Pomoc';
 
 const String kIwClientCursorLabel = 'Klient';
 

@@ -83,7 +83,7 @@ IwServerBrand? iwParseInstance(String body) {
   final tokens = b['tokens'] is Map ? b['tokens'] as Map : const {};
   final logo = b['logo'] is Map && b['legacy'] != true ? b['logo'] as Map : const {};
   return IwServerBrand(
-    name: name is String && name.isNotEmpty ? name : 'IncorrectWeb',
+    name: name is String && name.isNotEmpty ? name : 'GoCorrect',
     hash: b['hash'] is String ? b['hash'] as String : null,
     light: _tokens(tokens['light']),
     dark: _tokens(tokens['dark']),

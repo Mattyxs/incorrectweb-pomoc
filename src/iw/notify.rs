@@ -83,8 +83,8 @@ mod tests {
 
     #[test]
     fn powershell_runs_one_fixed_script_whatever_the_text() {
-        let a = powershell_toast("IncorrectWeb Pomoc", "Jan");
-        let b = powershell_toast("IncorrectWeb Pomoc", HOSTILE);
+        let a = powershell_toast("GoCorrect Pomoc", "Jan");
+        let b = powershell_toast("GoCorrect Pomoc", HOSTILE);
         assert_eq!(a.args, b.args);
         assert_eq!(decode(encoded_arg(&b)), TOAST_SCRIPT);
         assert!(!a.args.iter().any(|x| x == "-Command"), "no -Command with a script text");
@@ -113,10 +113,10 @@ mod tests {
 
     #[test]
     fn osascript_gets_texts_as_argv_not_in_the_script() {
-        let a = osascript_args("IncorrectWeb Pomoc", HOSTILE);
+        let a = osascript_args("GoCorrect Pomoc", HOSTILE);
         let n = a.len();
         assert_eq!(a[n - 2], HOSTILE.replace('\0', ""));
-        assert_eq!(a[n - 1], "IncorrectWeb Pomoc");
+        assert_eq!(a[n - 1], "GoCorrect Pomoc");
         for arg in &a[..n - 2] {
             assert!(!arg.contains("calc") && !arg.contains("whoami"), "{arg}");
         }
