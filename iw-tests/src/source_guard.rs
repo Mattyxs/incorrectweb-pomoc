@@ -302,3 +302,58 @@ fn connection_window_texts_are_polish() {
     let pl = repo_file("src/lang/pl.rs");
     assert!(pl.contains("(\"Accept and Elevate\", \"Akceptuj i podnieś uprawnienia\")"));
 }
+
+fn winres_section(cargo_toml: &str) -> String {
+    repo_file(cargo_toml).split("[package.metadata.winres]").nth(1).expect("winres section").split("\n[").next().unwrap().to_owned()
+}
+
+const COPYRIGHT: &str = "Copyright © 2026 Incorrectus. Oparty na RustDesk (AGPL-3.0), Copyright © 2026 Purslane Tech Pte. Ltd.";
+
+#[test]
+fn windows_file_properties_show_gocorrect_pomoc() {
+    // the released IncorrectWebPomoc-*.exe is the portable packer; the app and the Flutter runner carry the same names
+    for toml in ["libs/portable/Cargo.toml", "Cargo.toml"] {
+        let res = winres_section(toml);
+        for line in ["ProductName = \"GoCorrect Pomoc\"", "FileDescription = \"GoCorrect Pomoc\"", "CompanyName = \"Incorrectus\""] {
+            assert!(res.contains(line), "{toml}: {line}");
+        }
+        assert!(res.contains(&format!("LegalCopyright = \"{COPYRIGHT}\"")), "{toml}: copyright keeps the RustDesk origin");
+    }
+    let rc = repo_file("flutter/windows/runner/Runner.rc");
+    for value in ["\"ProductName\", \"GoCorrect Pomoc\"", "\"FileDescription\", \"GoCorrect Pomoc\"", "\"CompanyName\", \"Incorrectus\""] {
+        assert!(rc.contains(value), "Runner.rc: {value}");
+    }
+    assert!(rc.contains(&format!("\"LegalCopyright\", \"{COPYRIGHT}\"")), "Runner.rc copyright");
+}
+
+#[test]
+fn portable_exe_carries_the_iw_version() {
+    let build = repo_file("libs/portable/build.rs");
+    assert!(build.contains("../../src/iw/mod.rs") && build.contains("IW_VERSION"), "version read from src/iw/mod.rs");
+    assert!(build.contains("\"FileVersion\"") && build.contains("\"ProductVersion\""));
+}
+
+#[test]
+fn windows_install_shows_gocorrect_pomoc() {
+    let win = repo_file("src/platform/windows.rs");
+    assert!(!win.contains("/v DisplayName /t REG_SZ /d \\\"{app_name}\\\""), "Programs and Features: product name, not the internal name");
+    assert!(!win.contains("/v Publisher /t REG_SZ /d \\\"{app_name}\\\""), "publisher is Incorrectus");
+    assert_eq!(win.matches("/v DisplayName /t REG_SZ /d \\\"{display_name}\\\"").count(), 2, "install and update write the name");
+    assert_eq!(win.matches("/v Publisher /t REG_SZ /d \\\"{publisher}\\\"").count(), 2, "install and update write the publisher");
+    assert!(!win.contains("DisplayName= \\\"{app_name} Service\\\""), "service shown with the product name");
+    assert!(crate::iw::PUBLISHER == "Incorrectus");
+}
+
+#[test]
+fn macos_bundle_shows_gocorrect_pomoc() {
+    let plist = repo_file("flutter/macos/Runner/Info.plist");
+    assert!(plist.contains("<key>CFBundleName</key>\n\t<string>GoCorrect Pomoc</string>"));
+    assert!(plist.contains("<key>CFBundleDisplayName</key>\n\t<string>GoCorrect Pomoc</string>"));
+    let xc = repo_file("flutter/macos/Runner/Configs/AppInfo.xcconfig");
+    assert!(xc.contains("PRODUCT_NAME = IncorrectWebPomoc\n"), "bundle and executable names stay (updates, links)");
+    assert!(xc.contains("PRODUCT_BUNDLE_IDENTIFIER = com.incorrectweb.pomoc\n"));
+    assert!(xc.contains(&format!("PRODUCT_COPYRIGHT = {COPYRIGHT}\n")));
+    let menu = repo_file("flutter/macos/Runner/Base.lproj/MainMenu.xib");
+    assert!(!menu.contains("<menuItem title=\"APP_NAME\"") && !menu.contains(" APP_NAME\""), "menu items name the product");
+    assert!(menu.contains("<menuItem title=\"Quit GoCorrect Pomoc\""));
+}

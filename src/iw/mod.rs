@@ -4,6 +4,8 @@
 
 pub const IW_VERSION: &str = "1.4.9-iw.7";
 pub const DISPLAY_NAME: &str = "GoCorrect Pomoc";
+/// Publisher shown in the Windows list of installed programs.
+pub const PUBLISHER: &str = "Incorrectus";
 pub const SOURCE_URL: &str = "https://github.com/Mattyxs/incorrectweb-pomoc";
 
 pub mod sign;
