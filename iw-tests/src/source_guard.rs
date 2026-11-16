@@ -257,7 +257,7 @@ fn repo_bytes(rel: &str) -> Vec<u8> {
 fn tray_icons_are_made_from_the_current_app_icon() {
     use sha2::{Digest, Sha256};
     // res/make-tray-icons.py writes the tray icons and res/tray-icons.sha256 (shasum format);
-    // a new app icon without new tray icons fails here (the tray kept the icon of 19.10 until iw.8)
+    // a new app icon or mark without new tray icons fails here (the tray kept the icon of 19.10 until iw.8)
     let stamp = repo_file("res/tray-icons.sha256");
     let mut seen = Vec::new();
     for line in stamp.lines().filter(|l| !l.trim().is_empty()) {
@@ -266,13 +266,84 @@ fn tray_icons_are_made_from_the_current_app_icon() {
         assert_eq!(hash, now, "{path} changed: run python3 res/make-tray-icons.py");
         seen.push(path.to_owned());
     }
-    for f in ["res/icon.png", "res/32x32.png", "res/tray-icon.ico", "res/mac-tray-dark-x2.png", "res/mac-tray-light-x2.png"] {
+    for f in [
+        "res/icon.png",
+        "res/gocorrect-mark.png",
+        "res/tray-icon.ico",
+        "res/mac-tray-dark-x2.png",
+        "res/mac-tray-light-x2.png",
+    ] {
         assert!(seen.iter().any(|s| s == f), "{f} missing in res/tray-icons.sha256");
     }
-    // Windows: the icon in the tray is the 32 px app icon, byte for byte (one PNG entry after the 22-byte ICO header)
-    let ico = repo_bytes("res/tray-icon.ico");
-    assert_eq!(&ico[..6], &[0, 0, 1, 0, 1, 0], "an ICO with one image");
-    assert_eq!(&ico[22..], &repo_bytes("res/32x32.png")[..], "tray-icon.ico is res/32x32.png");
+}
+
+/// (width, height) of the PNG images in an ICO, in directory order; panics on anything that is not a PNG entry.
+fn ico_png_sizes(ico: &[u8]) -> Vec<(u32, u32)> {
+    assert_eq!(&ico[..4], &[0, 0, 1, 0], "an ICO");
+    let n = u16::from_le_bytes([ico[4], ico[5]]) as usize;
+    (0..n)
+        .map(|i| {
+            let e = &ico[6 + 16 * i..6 + 16 * (i + 1)];
+            let len = u32::from_le_bytes([e[8], e[9], e[10], e[11]]) as usize;
+            let off = u32::from_le_bytes([e[12], e[13], e[14], e[15]]) as usize;
+            let png = &ico[off..off + len];
+            assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n", "entry {i} is a PNG");
+            let w = u32::from_be_bytes([png[16], png[17], png[18], png[19]]);
+            let h = u32::from_be_bytes([png[20], png[21], png[22], png[23]]);
+            let dir = |b: u8| if b == 0 { 256 } else { b as u32 };
+            assert_eq!((dir(e[0]), dir(e[1])), (w, h), "directory and PNG of entry {i} agree");
+            (w, h)
+        })
+        .collect()
+}
+
+#[test]
+fn windows_tray_icon_has_one_image_per_small_icon_size() {
+    // SM_CXSMICON at 100, 125, 150, 200, 250 and 300 % scaling: each size is drawn for itself
+    // (GoCorrect mark on a white tile), Windows does not scale a bigger one down
+    let sizes = ico_png_sizes(&repo_bytes("res/tray-icon.ico"));
+    assert_eq!(sizes, [16, 20, 24, 32, 40, 48].map(|s| (s, s)).to_vec());
+}
+
+#[test]
+fn macos_tray_glyph_is_square_and_retina_high() {
+    for f in ["res/mac-tray-dark-x2.png", "res/mac-tray-light-x2.png"] {
+        let png = repo_bytes(f);
+        let w = u32::from_be_bytes([png[16], png[17], png[18], png[19]]);
+        let h = u32::from_be_bytes([png[20], png[21], png[22], png[23]]);
+        // the GoCorrect mark is round: the old glyph "iW" was wider than high
+        assert_eq!((w, h), (60, 60), "{f}");
+        assert_eq!(png[25], 6, "{f}: RGBA (a template keeps only the alpha)");
+    }
+}
+
+#[test]
+fn app_icon_is_the_gocorrect_icon_everywhere() {
+    use sha2::{Digest, Sha256};
+    // the icon of the GoCorrect desktop app (apps/desktop/src-tauri/icons of incorrectus-platform), copied as is
+    assert_eq!(repo_bytes("flutter/assets/icon.png"), repo_bytes("res/icon.png"), "flutter/assets/icon.png = res/icon.png");
+    assert_eq!(
+        repo_bytes("flutter/windows/runner/resources/app_icon.ico"),
+        repo_bytes("res/icon.ico"),
+        "app_icon.ico = res/icon.ico"
+    );
+    let ico = ico_png_sizes(&repo_bytes("res/icon.ico"));
+    for s in [16, 24, 32, 48, 256] {
+        assert!(ico.contains(&(s, s)), "res/icon.ico has {s} px");
+    }
+    // the old "iW" icons must not come back (sha256 of the iW res/icon.png, res/32x32.png and the iW icns)
+    for (f, old) in [
+        ("res/icon.png", "5619b309382cc927c4c8142786c2062afe9174198542c63e32e991f514fc646f"),
+        ("res/32x32.png", "b6816d4f479240974bba684d6618cbb988b10e2d5950bdf9b003b9036bf2f8ac"),
+    ] {
+        assert_ne!(hex::encode(Sha256::digest(repo_bytes(f))), old, "{f} is still the iW icon");
+    }
+    // the SVG fallbacks show the mark on a white tile, not the violet tile with the "W" polyline
+    for f in ["flutter/assets/icon.svg", "res/scalable.svg"] {
+        let svg = repo_file(f);
+        assert!(!svg.contains("<polyline") && !svg.contains("fill=\"#431c77\"/>"), "{f} is still the iW icon");
+        assert!(svg.contains("#ef7d1d") && svg.contains("#1e0e33"), "{f} has the GoCorrect mark");
+    }
 }
 
 #[test]
@@ -281,6 +352,15 @@ fn macos_tray_uses_the_template_glyph_not_the_app_icon() {
     // a template image keeps only the shape: the full app icon from the assets would be a filled square
     assert!(tray.contains("let asset_icon: Option<image::DynamicImage> = None;"), "macOS must not take assets/icon.png");
     assert!(tray.contains("asset_icon\n"), "the asset icon goes through asset_icon");
+}
+
+#[test]
+fn windows_tray_takes_the_entry_for_the_small_icon_size_not_the_asset_icon() {
+    let tray = repo_file("src/tray.rs");
+    // the 512 px assets/icon.png scaled down by the shell was blurry; the ICO has one image per size
+    assert!(tray.contains("SM_CXSMICON"), "the size comes from the small icon metric");
+    assert!(tray.contains("crate::iw::tray::ico_entry_for("), "the entry is picked by src/iw/tray.rs");
+    assert!(tray.contains("#[cfg(target_os = \"linux\")]\nfn load_icon_from_asset()"), "only Linux takes the asset icon");
 }
 
 #[test]

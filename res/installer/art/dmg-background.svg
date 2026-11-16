@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="660" height="400" viewBox="0 0 660 400">
-<title>IncorrectWeb Pomoc: tło okna instalacji macOS (DMG)</title>
+<title>GoCorrect Pomoc: tło okna instalacji macOS (DMG)</title>
 <!-- Tokens: @incorrectus/ui theme.css (light). bg #eeebf6, panel #ffffff, ink-2 #3c3552, violet #5b2fc4, brand #431c77, orange #ef7d1d. -->
 <defs>
 <symbol id="incorrectus-mark" viewBox="170 185 1150 985">
@@ -35,5 +35,5 @@
 <!-- Drag path from the app to the Applications folder. -->
 <path d="M272 180 H 384" fill="none" stroke="#5b2fc4" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="0.1 9" marker-end="url(#head)"/>
 <rect x="40" y="350" width="22" height="4" rx="2" fill="#ef7d1d"/>
-<text x="74" y="357" font-family="Onest, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="14" font-weight="500" fill="#3c3552">Przeciągnij IncorrectWeb Pomoc na folder Applications, aby zainstalować.</text>
+<text x="74" y="357" font-family="Onest, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="14" font-weight="500" fill="#3c3552">Przeciągnij GoCorrect Pomoc na folder Applications, aby zainstalować.</text>
 </svg>

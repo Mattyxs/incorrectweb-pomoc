@@ -44,7 +44,11 @@ fn make_tray() -> hbb_common::ResultType<()> {
     // assets would be a filled square: macOS always takes the glyph above (res/make-tray-icons.py)
     #[cfg(target_os = "macos")]
     let asset_icon: Option<image::DynamicImage> = None;
-    #[cfg(not(target_os = "macos"))]
+    // IW: Windows takes the image of res/tray-icon.ico drawn for the size of a small icon (the 512 px
+    // assets/icon.png scaled down by the shell was blurry)
+    #[cfg(windows)]
+    let asset_icon = windows_tray_icon(icon);
+    #[cfg(target_os = "linux")]
     let asset_icon = load_icon_from_asset();
 
     let (icon_rgba, icon_width, icon_height) = {
@@ -268,7 +272,16 @@ async fn start_query_session_count(sender: std::sync::mpsc::Sender<Data>) {
     }
 }
 
-#[cfg(not(target_os = "macos"))] // IW: macOS uses the template glyph
+// IW: the image of res/tray-icon.ico for the small icon size of this display (16 px at 100 %, 24 at 150 %, ...)
+#[cfg(windows)]
+fn windows_tray_icon(ico: &[u8]) -> Option<image::DynamicImage> {
+    let want = unsafe { winapi::um::winuser::GetSystemMetrics(winapi::um::winuser::SM_CXSMICON) };
+    let png = crate::iw::tray::ico_entry_for(ico, want.max(16) as u32)?;
+    image::load_from_memory(png).ok()
+}
+
+// IW: macOS uses the template glyph, Windows the ICO entry of its size (windows_tray_icon)
+#[cfg(target_os = "linux")]
 fn load_icon_from_asset() -> Option<image::DynamicImage> {
     let Some(path) = std::env::current_exe().map_or(None, |x| x.parent().map(|x| x.to_path_buf()))
     else {
