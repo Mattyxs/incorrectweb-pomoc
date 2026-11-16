@@ -323,7 +323,7 @@ jobs:
             }
           - {
               target: aarch64-apple-darwin,
-              os: macos-14,
+              os: macos-15,
               extra-build-args: "--screencapturekit",
               arch: aarch64,
             }
