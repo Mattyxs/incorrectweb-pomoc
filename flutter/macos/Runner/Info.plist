@@ -39,7 +39,7 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<!-- IW: full version 1.4.9-iw.N for GoCorrect (INCORRECTWEB.md, Dla GoCorrect) -->
 	<key>IWVersion</key>
-	<string>1.4.9-iw.9</string>
+	<string>1.4.9-iw.10</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key>
