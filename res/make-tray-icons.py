@@ -13,8 +13,9 @@ app icon). A template image keeps only the alpha, so the glyph is the plain silh
 between the faces of the cube stay, colours do not count.
 
 It also writes res/tray-icons.sha256; iw-tests (source_guard) fails when the app icon, the mark and the tray icons
-drift apart. res/gocorrect-mark.png is the mark of GoCorrect.svg (#ef7d1d, #431c77, #1e0e33) on a transparent
-background, cropped to the mark, 1024 px.
+drift apart. res/gocorrect-mark.png is the whole mark of GoCorrect.svg (#ef7d1d, #431c77, #1e0e33) on a transparent
+background, 1024 px, the square viewBox 120 120 840 840 centred on the ring (the ring is 750/840 of it, the orange
+arc reaches out to the right), the same mark as the icons of the GoCorrect desktop app.
 Run after changing the app icon or the mark, from the repo root:
   python3 res/make-tray-icons.py [--preview DIR]   (--preview: light and dark taskbar sheets for a visual check)
 Needs Pillow.
@@ -102,6 +103,10 @@ def check():
         assert px[0, 0][3] < 128, (s, 'the corners of the tile are round')
         white = sum(1 for p in im.getdata() if p[3] >= 250 and min(p[:3]) >= 230)
         assert white >= s * s // 10, (s, "a white tile", white)  # 14 % at 16 px, 40 % at 48 px
+        # the orange arc (top right) is whole and stays inside the tile: orange there, none in the outer column
+        orange = [(x, y) for y in range(s // 2) for x in range(s // 2, s)
+                  if px[x, y][3] > 200 and px[x, y][0] > 180 and 60 < px[x, y][1] < 160 and px[x, y][2] < 90]
+        assert orange and max(x for x, _ in orange) < s - 1, (s, 'the arc', orange[-3:])
         centre = px[s // 2, s // 2 - s // 6]           # top face of the cube: orange
         assert centre[0] > 180 and centre[2] < 120, (s, centre)
     dark = Image.open(rel('mac-tray-dark-x2.png')).convert('RGBA')
