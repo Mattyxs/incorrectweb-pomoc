@@ -124,6 +124,8 @@ impl RendezvousMediator {
         #[cfg(target_os = "windows")]
         if crate::platform::is_installed() && crate::is_server() {
             crate::updater::start_auto_update();
+            // IW: GoCorrect may ask the service for an update check now (src/iw/check_now.rs)
+            crate::iw_app::start_check_now_listener();
         }
         check_zombie();
         let server = new_server();

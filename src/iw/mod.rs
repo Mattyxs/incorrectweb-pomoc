@@ -20,3 +20,4 @@ pub mod policy;
 pub mod update;
 pub mod update_file;
 pub mod tray;
+pub mod check_now;

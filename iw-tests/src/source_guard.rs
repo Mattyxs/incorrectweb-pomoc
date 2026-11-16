@@ -437,3 +437,39 @@ fn macos_bundle_shows_gocorrect_pomoc() {
     assert!(!menu.contains("<menuItem title=\"APP_NAME\"") && !menu.contains(" APP_NAME\""), "menu items name the product");
     assert!(menu.contains("<menuItem title=\"Quit GoCorrect Pomoc\""));
 }
+
+#[test]
+fn installation_and_update_write_the_full_version_as_display_version() {
+    // GoCorrect reads DisplayVersion of HKLM\...\Uninstall\IncorrectWebPomoc to know the installed 1.4.9-iw.N
+    let win = repo_file("src/platform/windows.rs");
+    assert_eq!(win.matches("/v DisplayVersion /t REG_SZ /d \\\"{iw_version}\\\"").count(), 2, "install_me and update_me");
+    assert!(!win.contains("/v DisplayVersion /t REG_SZ /d \\\"{version}\\\""), "not the upstream 1.4.9");
+    assert_eq!(win.matches("iw_version = crate::iw::IW_VERSION").count(), 2);
+}
+
+#[test]
+fn macos_info_plist_carries_the_full_version() {
+    let plist = repo_file("flutter/macos/Runner/Info.plist");
+    let want = format!("<key>IWVersion</key>\n\t<string>{}</string>", crate::iw::IW_VERSION);
+    assert!(plist.contains(&want), "Info.plist: IWVersion = {}", crate::iw::IW_VERSION);
+}
+
+#[test]
+fn check_now_signal_reaches_the_updater_of_the_service() {
+    let mediator = repo_file("src/rendezvous_mediator.rs");
+    assert!(mediator.contains("crate::iw_app::start_check_now_listener();"), "started with the auto update of the service");
+    let app = repo_file("src/iw_app.rs");
+    assert!(app.contains("iw::check_now::EVENT_NAME") && app.contains("iw::check_now::SDDL"), "event and DACL from src/iw");
+    assert!(app.contains("limiter.accept("), "signals go through the limiter");
+    let up = repo_file("src/updater.rs");
+    assert!(up.contains("UpdateMsg::CheckNow") && up.contains("pub fn check_now()"), "a message of its own");
+}
+
+#[test]
+fn contract_for_gocorrect_is_documented_with_the_values_of_the_code() {
+    let doc = repo_file("INCORRECTWEB.md");
+    let part = doc.split("## Dla GoCorrect").nth(1).expect("section Dla GoCorrect");
+    for v in [crate::iw::check_now::EVENT_NAME, crate::iw::check_now::SDDL, "IWVersion", "DisplayVersion", "5 min"] {
+        assert!(part.contains(&v), "INCORRECTWEB.md, Dla GoCorrect: {v}");
+    }
+}

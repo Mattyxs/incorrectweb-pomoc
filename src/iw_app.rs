@@ -250,6 +250,68 @@ pub fn update_offer() -> Option<iw::update::Offer> {
     UPDATE_OFFER.lock().unwrap().clone()
 }
 
+// ---- "check for an update now" from GoCorrect (src/iw/check_now.rs, INCORRECTWEB.md "Dla GoCorrect") -----------------
+
+/// IW: the service process owns the event a signed-in user may set to ask for an update check now; one thread,
+/// started once, beside the automatic update check.
+#[cfg(windows)]
+pub fn start_check_now_listener() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        std::thread::spawn(|| {
+            if let Err(e) = check_now_listener() {
+                log::error!("IW: check-now event: {e}");
+            }
+        });
+    });
+}
+
+#[cfg(windows)]
+fn check_now_listener() -> hbb_common::ResultType<()> {
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::{CloseHandle, LocalFree, HLOCAL, WAIT_OBJECT_0};
+    use windows::Win32::Security::{
+        Authorization::{ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1},
+        PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES,
+    };
+    use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject, INFINITE};
+
+    let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
+    let sddl = wide(iw::check_now::SDDL);
+    let name = wide(iw::check_now::EVENT_NAME);
+    let mut sd = PSECURITY_DESCRIPTOR::default();
+    unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(PCWSTR(sddl.as_ptr()), SDDL_REVISION_1, &mut sd, None)?
+    };
+    let sa = SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: sd.0,
+        bInheritHandle: false.into(),
+    };
+    // auto-reset: signals while a check is pending fold into one; only SYSTEM and services may create it in Global\
+    let event = unsafe { CreateEventW(Some(&sa), false, false, PCWSTR(name.as_ptr())) };
+    unsafe {
+        let _ = LocalFree(Some(HLOCAL(sd.0)));
+    }
+    let event = event?;
+    log::info!("IW: waiting for {}", iw::check_now::EVENT_NAME);
+    let mut limiter = iw::check_now::Limiter::default();
+    loop {
+        if unsafe { WaitForSingleObject(event, INFINITE) } != WAIT_OBJECT_0 {
+            unsafe {
+                let _ = CloseHandle(event);
+            }
+            hbb_common::bail!("waiting for {} failed", iw::check_now::EVENT_NAME);
+        }
+        if limiter.accept(Instant::now()) {
+            log::info!("IW: update check asked for (GoCorrect)");
+            crate::updater::check_now();
+        } else {
+            log::debug!("IW: update check asked for again within 5 minutes: ignored");
+        }
+    }
+}
+
 // ---- organization --------------------------------------------------------------------------------
 
 /// Code from the name of the downloaded file (`IncorrectWebPomoc-ABCD-EFGH.exe`), if any.

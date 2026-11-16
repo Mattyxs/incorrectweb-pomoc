@@ -1708,7 +1708,7 @@ md \"{path}\"
 reg add {subkey} /f
 reg add {subkey} /f /v DisplayIcon /t REG_SZ /d \"{display_icon}\"
 reg add {subkey} /f /v DisplayName /t REG_SZ /d \"{display_name}\"
-reg add {subkey} /f /v DisplayVersion /t REG_SZ /d \"{version}\"
+reg add {subkey} /f /v DisplayVersion /t REG_SZ /d \"{iw_version}\"
 reg add {subkey} /f /v Version /t REG_SZ /d \"{version}\"
 reg add {subkey} /f /v BuildDate /t REG_SZ /d \"{build_date}\"
 reg add {subkey} /f /v InstallLocation /t REG_SZ /d \"{path}\"
@@ -1734,6 +1734,8 @@ copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{path}\\\"
         // IW: Programs and Features shows the product name and the publisher; the key stays {app_name}
         display_name = crate::iw::DISPLAY_NAME,
         publisher = crate::iw::PUBLISHER,
+        // IW: Programs and Features (and GoCorrect) see the full version 1.4.9-iw.N; Version stays numeric
+        iw_version = crate::iw::IW_VERSION,
         version = crate::VERSION.replace("-", "."),
         build_date = crate::BUILD_DATE,
         after_install = get_after_install(
@@ -3331,14 +3333,16 @@ reg add {subkey} /f /v Publisher /t REG_SZ /d \"{publisher}\"",
         format!(
             "
 {reg_display_icon}
-reg add {subkey} /f /v DisplayVersion /t REG_SZ /d \"{version}\"
+reg add {subkey} /f /v DisplayVersion /t REG_SZ /d \"{iw_version}\"
 reg add {subkey} /f /v Version /t REG_SZ /d \"{version}\"
 reg add {subkey} /f /v BuildDate /t REG_SZ /d \"{build_date}\"
 reg add {subkey} /f /v VersionMajor /t REG_DWORD /d {version_major}
 reg add {subkey} /f /v VersionMinor /t REG_DWORD /d {version_minor}
 reg add {subkey} /f /v VersionBuild /t REG_DWORD /d {version_build}
 reg add {subkey} /f /v EstimatedSize /t REG_DWORD /d {size}
-        "
+        ",
+            // IW: the full version 1.4.9-iw.N, also written by every update
+            iw_version = crate::iw::IW_VERSION,
         )
     }
 

@@ -12,6 +12,8 @@ use std::{
 
 enum UpdateMsg {
     CheckUpdate,
+    // IW: "check now" from GoCorrect (iw_app::start_check_now_listener, already limited to once per 5 minutes)
+    CheckNow,
     Exit,
 }
 
@@ -38,6 +40,13 @@ pub fn manually_check_update() -> ResultType<()> {
     let sender = TX_MSG.lock().unwrap();
     sender.send(UpdateMsg::CheckUpdate)?;
     Ok(())
+}
+
+// IW: an update check right away, by the usual rules (no session on, signature); not held back by MIN_INTERVAL
+#[allow(dead_code)]
+pub fn check_now() {
+    let sender = TX_MSG.lock().unwrap();
+    sender.send(UpdateMsg::CheckNow).unwrap_or_default();
 }
 
 #[allow(dead_code)]
@@ -95,8 +104,9 @@ fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
     loop {
         let recv_res = rx_msg.recv_timeout(check_interval);
         match &recv_res {
-            Ok(UpdateMsg::CheckUpdate) | Err(_) => {
-                if last_check_time.elapsed() < MIN_INTERVAL {
+            Ok(UpdateMsg::CheckUpdate) | Ok(UpdateMsg::CheckNow) | Err(_) => {
+                // IW: CheckNow is limited by its sender (5 minutes), not by MIN_INTERVAL
+                if !matches!(recv_res, Ok(UpdateMsg::CheckNow)) && last_check_time.elapsed() < MIN_INTERVAL {
                     // log::debug!("Update check skipped due to minimum interval.");
                     continue;
                 }
