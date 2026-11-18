@@ -1,12 +1,13 @@
 //! IW: updates of IncorrectWeb Pomoc from the update server of IncorrectWeb (not from RustDesk). The manifest
-//! `pomoc.json` names the newest version and one package per platform with its SHA-256 and a minisign signature made
-//! with the key of IncorrectWeb releases (the same key signs the IncorrectWeb desktop app). A package is used only
-//! when both match.
+//! `pomoc.json` names the newest version and one package per platform with its SHA-256 and a minisign signature:
+//! `pomocSignature` with the Pomoc key (POMOC_KEY, since 18.11.2026) or, during the transition, `signature` with the key
+//! of IncorrectWeb releases (the key of the IncorrectWeb desktop app). A package is used only when both match.
 //!
 //! ```json
 //! {"version": "1.4.9-iw.7", "minimum": "1.4.9-iw.6",
 //!  "platforms": {"windows-x86_64": {"url": "https://license.incorrectus.com/desktop/pomoc/IncorrectWebPomoc-1.4.9-iw.7-x64.exe",
-//!                                   "sha256": "<64 hex>", "signature": "<content of the .sig file of `tauri signer sign`>"}}}
+//!                                   "sha256": "<64 hex>", "signature": "<.sig of `tauri signer sign`, release key>",
+//!                                   "pomocSignature": "<.sig of `tauri signer sign`, Pomoc key>"}}}
 //! ```
 
 use std::cmp::Ordering;
@@ -17,12 +18,31 @@ pub const PACKAGE_HOST: &str = "license.incorrectus.com";
 pub const PACKAGE_PATH: &str = "/desktop/pomoc/";
 /// Public minisign key of IncorrectWeb releases (`plugins.updater.pubkey` of apps/desktop/src-tauri/tauri.conf.json).
 pub const PUBLIC_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRFRUU4NDUwOEUxQkZGQzUKUldURi94dU9VSVR1VHVDODRRdjNsQTlTNEFmSHgxeHlYRlVIUWJEOFBhZ1RYVngzaUNFOC9CQ0gK";
+/// Public minisign key of Pomoc packages (key id 24F2AA81840412CB, 18.11.2026; `POMOC_KEY` of
+/// apps/desktop/src-tauri/src/pomoc_update.rs): its own key, not the one of the desktop app's updates.
+pub const POMOC_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI0RjJBQTgxODQwNDEyQ0IKUldUTEVnU0VnYXJ5Sk1paHdpNWdLZ1NCTUhFcERWRU1NeGcrSitUdjBwOVlOU01BbnNmVEp4U1oK";
+/// Transition: a package signed only with the release key (`signature`, pomoc.json up to 1.4.9-iw.10) still passes.
+/// Turned off together with the desktop app (`ACCEPT_RELEASE_KEY` of pomoc_update.rs) once every installed Pomoc checks
+/// the Pomoc key.
+pub const ACCEPT_RELEASE_KEY: bool = true;
+/// The keys the installed program checks packages with.
+pub const KEYS: Keys<'static> = Keys { pomoc: POMOC_KEY, release: Some(PUBLIC_KEY) };
+
+/// The keys a package may be signed with: the Pomoc key, and the release key while ACCEPT_RELEASE_KEY holds.
+#[derive(Debug, Clone, Copy)]
+pub struct Keys<'a> {
+    pub pomoc: &'a str,
+    pub release: Option<&'a str>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Package {
     pub url: String,
     pub sha256: String,
+    /// With the release key (`signature`); empty when the manifest has none.
     pub signature: String,
+    /// With the Pomoc key (`pomocSignature`).
+    pub pomoc_signature: Option<String>,
 }
 
 /// A newer version for this computer.
@@ -81,7 +101,12 @@ pub fn offer(manifest: &str, current: &str, platform: &str) -> Result<Option<Off
     }
     let p = m.get("platforms").and_then(|p| p.get(platform)).ok_or(UpdateError::NoPackage)?;
     let field = |k: &str| p.get(k).and_then(|v| v.as_str()).map(str::to_owned).ok_or(UpdateError::Manifest);
-    let package = Package { url: field("url")?, sha256: field("sha256")?.to_lowercase(), signature: field("signature")? };
+    let optional = |k: &str| p.get(k).map(|v| v.as_str().map(str::to_owned).ok_or(UpdateError::Manifest)).transpose();
+    let (signature, pomoc_signature) = (optional("signature")?, optional("pomocSignature")?);
+    if signature.is_none() && pomoc_signature.is_none() {
+        return Err(UpdateError::Manifest);
+    }
+    let package = Package { url: field("url")?, sha256: field("sha256")?.to_lowercase(), signature: signature.unwrap_or_default(), pomoc_signature };
     // Only `https://license.incorrectus.com/desktop/pomoc/IncorrectWebPomoc-<version>-…`: never another file of the
     // update server (the desktop installer) and never an older package under the new version.
     let name = file_name(&package.url).ok_or(UpdateError::Address)?;
@@ -115,25 +140,33 @@ pub fn file_name(url: &str) -> Option<String> {
     (plain && (name.ends_with(".exe") || name.ends_with(".dmg"))).then(|| name.to_owned())
 }
 
-/// The downloaded package is the published one: its SHA-256 and the minisign signature with `public_key`, made for the
-/// file of the address (`file:<name>` in the trusted comment, as `tauri signer sign` writes it).
-pub fn verify(bytes: &[u8], package: &Package, public_key: &str) -> Result<(), UpdateError> {
-    use hbb_common::base64::{engine::general_purpose::STANDARD, Engine};
+/// The downloaded package is the published one: its SHA-256 and a minisign signature made for the file of the address
+/// (`file:<name>` in the trusted comment, as `tauri signer sign` writes it): `pomocSignature` with the Pomoc key, or
+/// (transition) `signature` with the release key.
+pub fn verify(bytes: &[u8], package: &Package, keys: &Keys) -> Result<(), UpdateError> {
     use sha2::{Digest, Sha256};
     if !hex::encode(Sha256::digest(bytes)).eq_ignore_ascii_case(&package.sha256) {
         return Err(UpdateError::Checksum);
     }
-    // Both are base64 of the minisign text files, as `tauri signer` writes them (the same check as the desktop updater).
-    let text = |b64: &str| STANDARD.decode(b64.trim()).ok().and_then(|b| String::from_utf8(b).ok());
-    let key = text(public_key).and_then(|t| minisign_verify::PublicKey::decode(&t).ok()).ok_or(UpdateError::Signature)?;
-    let sig = text(&package.signature).and_then(|t| minisign_verify::Signature::decode(&t).ok()).ok_or(UpdateError::Signature)?;
-    key.verify(bytes, &sig, true).map_err(|_| UpdateError::Signature)?;
     let name = file_name(&package.url).ok_or(UpdateError::Signature)?;
     let file = format!("file:{name}");
-    if !sig.trusted_comment().split('\t').any(|field| field == file) {
-        return Err(UpdateError::Signature);
+    let by_pomoc = package.pomoc_signature.as_deref().is_some_and(|sig| signed(bytes, sig, keys.pomoc, &file));
+    let by_release = ACCEPT_RELEASE_KEY && keys.release.is_some_and(|key| signed(bytes, &package.signature, key, &file));
+    if by_pomoc || by_release {
+        Ok(())
+    } else {
+        Err(UpdateError::Signature)
     }
-    Ok(())
+}
+
+/// `signature` (base64 of a minisign signature file, as `tauri signer` writes it) of `bytes` with `public_key` (base64
+/// of the public key file), naming `file` in its trusted comment (the same check as the desktop updater).
+fn signed(bytes: &[u8], signature: &str, public_key: &str, file: &str) -> bool {
+    use hbb_common::base64::{engine::general_purpose::STANDARD, Engine};
+    let text = |b64: &str| STANDARD.decode(b64.trim()).ok().and_then(|b| String::from_utf8(b).ok());
+    let Some(key) = text(public_key).and_then(|t| minisign_verify::PublicKey::decode(&t).ok()) else { return false };
+    let Some(sig) = text(signature).and_then(|t| minisign_verify::Signature::decode(&t).ok()) else { return false };
+    key.verify(bytes, &sig, true).is_ok() && sig.trusted_comment().split('\t').any(|field| field == file)
 }
 
 #[cfg(test)]
@@ -157,7 +190,69 @@ mod tests {
     }
 
     fn package() -> Package {
-        Package { url: "https://license.incorrectus.com/desktop/pomoc/IncorrectWebPomoc-1.4.9-iw.7-x64.exe".into(), sha256: sha(TEST_FILE), signature: TEST_SIG.into() }
+        Package { url: "https://license.incorrectus.com/desktop/pomoc/IncorrectWebPomoc-1.4.9-iw.7-x64.exe".into(), sha256: sha(TEST_FILE), signature: TEST_SIG.into(), pomoc_signature: None }
+    }
+
+    /// A throwaway key standing in for POMOC_KEY and TEST_FILE signed with it under its release name and as `pkg.bin`
+    /// (the same vectors as pomoc_update_tests.rs of the desktop app).
+    const TEST_POMOC_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDAyRUEwQTFBNkEzMDk2QTIKUldTaWxqQnFHZ3JxQXVBWFJHY2cwWW4ydyttM1Byck9yelJkKzV6elhqRmM1NEdZMnR6bWVOMDgK";
+    const TEST_POMOC_SIG: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTaWxqQnFHZ3JxQWsyWEZMRkhTV3NDNDR0aVNGdy81MTdCd2RrU3pBME4zNXJWVW5iSW1CSmlrNFBzRWQvNXdhRDYxeFhXVzZvdDY4MW1UZkRDNmZBazdrbk9QaUZWU2dZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MDM4NzE4CWZpbGU6SW5jb3JyZWN0V2ViUG9tb2MtMS40LjktaXcuNy14NjQuZXhlCjRLaDdlcTRjRlNZTzNMYWdzV2k3UzlMMFQ1QkMzNVZWTjZxTUJDZ0JSUE8vMHhGbE4yQUIxd1A3L3p2Z3RldVNrQzVsR0M0VDlZSFBpSE41UjU3YUR3PT0K";
+    const TEST_POMOC_OTHER_NAME_SIG: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTaWxqQnFHZ3JxQXE0d2JQcmF6aHZxejJ0WDRXSUNkd2ZxOUdxNFBrYUZCVDJWNWxxaGVyNkJ0TVBuSms3RWx3QnhJRzh6czQwWFRWczNpU0JxTmM2Vk42RmxoRnRVemdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MDM4NzE5CWZpbGU6cGtnLmJpbgpSSW1WU0RURG5ybmVoUE5vL3poVkFTajBkY0kvbm04aVk0UlVmdUJReWd6V1M3TGJyV2lBSzBySnZnZDBmZjZnbkN4ci9Gck5RMldqWXpUblA3N0hCZz09Cg==";
+
+    fn keys(release: &str) -> Keys<'_> {
+        Keys { pomoc: TEST_POMOC_KEY, release: Some(release) }
+    }
+
+    fn pomoc_signed() -> Package {
+        Package { signature: String::new(), pomoc_signature: Some(TEST_POMOC_SIG.into()), ..package() }
+    }
+
+    #[test]
+    fn a_package_signed_with_the_pomoc_key_passes_without_the_release_signature() {
+        assert_eq!(verify(TEST_FILE, &pomoc_signed(), &keys(TEST_KEY)), Ok(()));
+        assert_eq!(verify(TEST_FILE, &pomoc_signed(), &Keys { pomoc: TEST_POMOC_KEY, release: None }), Ok(()));
+        assert_eq!(verify(TEST_FILE, &Package { pomoc_signature: Some(TEST_POMOC_SIG.into()), ..package() }, &keys(TEST_KEY)), Ok(()));
+    }
+
+    #[test]
+    fn during_the_transition_a_package_signed_only_with_the_release_key_passes() {
+        assert!(ACCEPT_RELEASE_KEY);
+        assert_eq!(verify(TEST_FILE, &package(), &keys(TEST_KEY)), Ok(()));
+        assert_eq!(verify(TEST_FILE, &package(), &Keys { pomoc: TEST_POMOC_KEY, release: None }), Err(UpdateError::Signature));
+    }
+
+    #[test]
+    fn a_pomoc_signature_of_another_key_or_file_fails() {
+        let swapped = Package { signature: String::new(), pomoc_signature: Some(TEST_SIG.into()), ..package() };
+        assert_eq!(verify(TEST_FILE, &swapped, &keys(TEST_KEY)), Err(UpdateError::Signature));
+        let other_name = Package { pomoc_signature: Some(TEST_POMOC_OTHER_NAME_SIG.into()), ..pomoc_signed() };
+        assert_eq!(verify(TEST_FILE, &other_name, &keys(TEST_KEY)), Err(UpdateError::Signature));
+        let renamed = Package { url: package().url.replace("iw.7-x64", "iw.7-x86"), ..pomoc_signed() };
+        assert_eq!(verify(TEST_FILE, &renamed, &keys(TEST_KEY)), Err(UpdateError::Signature));
+        let broken = Package { pomoc_signature: Some("bm90IGEgc2lnbmF0dXJl".into()), ..package() };
+        assert_eq!(verify(TEST_FILE, &broken, &keys(TEST_KEY)), Ok(()), "a broken Pomoc signature does not hide a good release one");
+    }
+
+    #[test]
+    fn the_manifest_carries_the_pomoc_signature_next_to_the_release_signature() {
+        let both = manifest("1.4.9-iw.7", None).replace(r#""signature":"#, &format!(r#""pomocSignature":"{TEST_POMOC_SIG}","signature":"#));
+        let o = offer(&both, "1.4.9-iw.6", "windows-x86_64").unwrap().unwrap();
+        assert_eq!(o.package, Package { pomoc_signature: Some(TEST_POMOC_SIG.into()), ..package() });
+        let only_pomoc = both.replace(&format!(r#","signature":"{TEST_SIG}""#), "");
+        assert_eq!(offer(&only_pomoc, "1.4.9-iw.6", "windows-x86_64").unwrap().unwrap().package, pomoc_signed());
+        let none = manifest("1.4.9-iw.7", None).replace(&format!(r#","signature":"{TEST_SIG}""#), "");
+        assert_eq!(offer(&none, "1.4.9-iw.6", "windows-x86_64"), Err(UpdateError::Manifest));
+    }
+
+    #[test]
+    fn the_pomoc_key_is_its_own_key() {
+        use hbb_common::base64::{engine::general_purpose::STANDARD, Engine};
+        let text = String::from_utf8(STANDARD.decode(POMOC_KEY).unwrap()).unwrap();
+        assert!(text.starts_with("untrusted comment: minisign public key: 24F2AA81840412CB\n"), "{text}");
+        assert!(minisign_verify::PublicKey::decode(&text).is_ok());
+        assert_ne!(POMOC_KEY, PUBLIC_KEY);
+        assert_eq!(KEYS.pomoc, POMOC_KEY);
+        assert_eq!(KEYS.release, Some(PUBLIC_KEY));
     }
 
     fn manifest(version: &str, minimum: Option<&str>) -> String {
@@ -244,22 +339,22 @@ mod tests {
 
     #[test]
     fn the_signed_file_passes() {
-        assert_eq!(verify(TEST_FILE, &package(), TEST_KEY), Ok(()));
+        assert_eq!(verify(TEST_FILE, &package(), &keys(TEST_KEY)), Ok(()));
     }
 
     #[test]
     fn a_changed_file_fails_the_checksum() {
-        assert_eq!(verify(b"IncorrectWeb Pomoc test package!\n", &package(), TEST_KEY), Err(UpdateError::Checksum));
+        assert_eq!(verify(b"IncorrectWeb Pomoc test package!\n", &package(), &keys(TEST_KEY)), Err(UpdateError::Checksum));
     }
 
     #[test]
     fn a_file_with_the_right_checksum_but_no_valid_signature_fails() {
         let other = b"other file\n";
         let p = Package { sha256: sha(other), ..package() };
-        assert_eq!(verify(other, &p, TEST_KEY), Err(UpdateError::Signature), "the signature is of another file");
-        assert_eq!(verify(TEST_FILE, &package(), PUBLIC_KEY), Err(UpdateError::Signature), "signed with another key");
+        assert_eq!(verify(other, &p, &keys(TEST_KEY)), Err(UpdateError::Signature), "the signature is of another file");
+        assert_eq!(verify(TEST_FILE, &package(), &keys(PUBLIC_KEY)), Err(UpdateError::Signature), "signed with another key");
         let broken = Package { signature: "bm90IGEgc2lnbmF0dXJl".into(), ..package() };
-        assert_eq!(verify(TEST_FILE, &broken, TEST_KEY), Err(UpdateError::Signature));
+        assert_eq!(verify(TEST_FILE, &broken, &keys(TEST_KEY)), Err(UpdateError::Signature));
     }
 
     #[test]
@@ -279,14 +374,14 @@ mod tests {
     #[test]
     fn a_signature_made_for_another_file_name_fails() {
         let p = Package { signature: OTHER_NAME_SIG.into(), ..package() };
-        assert_eq!(verify(TEST_FILE, &p, TEST_KEY), Err(UpdateError::Signature));
+        assert_eq!(verify(TEST_FILE, &p, &keys(TEST_KEY)), Err(UpdateError::Signature));
     }
 
     #[test]
     fn an_older_signed_package_cannot_be_passed_off_as_the_new_version() {
         // Under the new name: the signature names the old file.
         let p = Package { sha256: sha(OLD_FILE), signature: OLD_SIG.into(), ..package() };
-        assert_eq!(verify(OLD_FILE, &p, TEST_KEY), Err(UpdateError::Signature));
+        assert_eq!(verify(OLD_FILE, &p, &keys(TEST_KEY)), Err(UpdateError::Signature));
         // Under its own name in a manifest of the new version: the name does not carry the offered version.
         let old_url = "https://license.incorrectus.com/desktop/pomoc/IncorrectWebPomoc-1.4.9-iw.5-x64.exe";
         let m = manifest("1.4.9-iw.7", None).replace(&package().url, old_url);
@@ -309,8 +404,8 @@ mod tests {
 
     #[test]
     fn the_verified_package_is_named_for_its_version() {
-        assert_eq!(verify(TEST_FILE, &package(), TEST_KEY), Ok(()));
+        assert_eq!(verify(TEST_FILE, &package(), &keys(TEST_KEY)), Ok(()));
         let renamed = Package { url: package().url.replace("iw.7-x64", "iw.7-x86"), ..package() };
-        assert_eq!(verify(TEST_FILE, &renamed, TEST_KEY), Err(UpdateError::Signature), "the address names another file than the signature");
+        assert_eq!(verify(TEST_FILE, &renamed, &keys(TEST_KEY)), Err(UpdateError::Signature), "the address names another file than the signature");
     }
 }

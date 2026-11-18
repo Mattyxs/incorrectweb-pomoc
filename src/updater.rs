@@ -143,10 +143,10 @@ fn check_update(manually: bool) -> ResultType<()> {
         bail!("IW: unusable package address: {}", offer.package.url);
     };
     log::debug!("New version available: {}", &version);
-    // IW: into memory through our own client, checked (SHA-256, signature of IncorrectWeb releases for this file name)
+    // IW: into memory through our own client, checked (SHA-256, signature of the Pomoc key, or of IncorrectWeb releases during the transition, for this file name)
     // before anything is written.
     let bytes = crate::iw_app::download_update(&offer.package.url)?;
-    if let Err(e) = crate::iw::update::verify(&bytes, &offer.package, crate::iw::update::PUBLIC_KEY) {
+    if let Err(e) = crate::iw::update::verify(&bytes, &offer.package, &crate::iw::update::KEYS) {
         bail!("IW: the package of {} was rejected: {:?}", version, e);
     }
     #[cfg(not(target_os = "windows"))]
@@ -159,7 +159,7 @@ fn check_update(manually: bool) -> ResultType<()> {
         let path = crate::iw_app::stage_update(&name, &bytes)?;
         let mut file = update_file::open_locked(&path)?;
         let staged = update_file::read_all(&mut file)?;
-        if let Err(e) = crate::iw::update::verify(&staged, &offer.package, crate::iw::update::PUBLIC_KEY) {
+        if let Err(e) = crate::iw::update::verify(&staged, &offer.package, &crate::iw::update::KEYS) {
             drop(file);
             std::fs::remove_file(&path).ok();
             bail!("IW: the written package of {} was rejected: {:?}", version, e);
