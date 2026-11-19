@@ -390,17 +390,17 @@ fn winres_section(cargo_toml: &str) -> String {
 const COPYRIGHT: &str = "Copyright © 2026 Incorrectus. Oparty na RustDesk (AGPL-3.0), Copyright © 2026 Purslane Tech Pte. Ltd.";
 
 #[test]
-fn windows_file_properties_show_gocorrect_pomoc() {
+fn windows_file_properties_show_goconnect_pomoc() {
     // the released IncorrectWebPomoc-*.exe is the portable packer; the app and the Flutter runner carry the same names
     for toml in ["libs/portable/Cargo.toml", "Cargo.toml"] {
         let res = winres_section(toml);
-        for line in ["ProductName = \"GoCorrect Pomoc\"", "FileDescription = \"GoCorrect Pomoc\"", "CompanyName = \"Incorrectus\""] {
+        for line in ["ProductName = \"GoConnect Pomoc\"", "FileDescription = \"GoConnect Pomoc\"", "CompanyName = \"Incorrectus\""] {
             assert!(res.contains(line), "{toml}: {line}");
         }
         assert!(res.contains(&format!("LegalCopyright = \"{COPYRIGHT}\"")), "{toml}: copyright keeps the RustDesk origin");
     }
     let rc = repo_file("flutter/windows/runner/Runner.rc");
-    for value in ["\"ProductName\", \"GoCorrect Pomoc\"", "\"FileDescription\", \"GoCorrect Pomoc\"", "\"CompanyName\", \"Incorrectus\""] {
+    for value in ["\"ProductName\", \"GoConnect Pomoc\"", "\"FileDescription\", \"GoConnect Pomoc\"", "\"CompanyName\", \"Incorrectus\""] {
         assert!(rc.contains(value), "Runner.rc: {value}");
     }
     assert!(rc.contains(&format!("\"LegalCopyright\", \"{COPYRIGHT}\"")), "Runner.rc copyright");
@@ -414,7 +414,7 @@ fn portable_exe_carries_the_iw_version() {
 }
 
 #[test]
-fn windows_install_shows_gocorrect_pomoc() {
+fn windows_install_shows_goconnect_pomoc() {
     let win = repo_file("src/platform/windows.rs");
     assert!(!win.contains("/v DisplayName /t REG_SZ /d \\\"{app_name}\\\""), "Programs and Features: product name, not the internal name");
     assert!(!win.contains("/v Publisher /t REG_SZ /d \\\"{app_name}\\\""), "publisher is Incorrectus");
@@ -425,17 +425,27 @@ fn windows_install_shows_gocorrect_pomoc() {
 }
 
 #[test]
-fn macos_bundle_shows_gocorrect_pomoc() {
+fn macos_bundle_shows_goconnect_pomoc() {
     let plist = repo_file("flutter/macos/Runner/Info.plist");
-    assert!(plist.contains("<key>CFBundleName</key>\n\t<string>GoCorrect Pomoc</string>"));
-    assert!(plist.contains("<key>CFBundleDisplayName</key>\n\t<string>GoCorrect Pomoc</string>"));
+    assert!(plist.contains("<key>CFBundleName</key>\n\t<string>GoConnect Pomoc</string>"));
+    // the localized name is shown only while the plain display name equals the file name of the bundle
+    assert!(plist.contains("<key>CFBundleDisplayName</key>\n\t<string>IncorrectWebPomoc</string>"));
     let xc = repo_file("flutter/macos/Runner/Configs/AppInfo.xcconfig");
     assert!(xc.contains("PRODUCT_NAME = IncorrectWebPomoc\n"), "bundle and executable names stay (updates, links)");
     assert!(xc.contains("PRODUCT_BUNDLE_IDENTIFIER = com.incorrectweb.pomoc\n"));
     assert!(xc.contains(&format!("PRODUCT_COPYRIGHT = {COPYRIGHT}\n")));
     let menu = repo_file("flutter/macos/Runner/Base.lproj/MainMenu.xib");
     assert!(!menu.contains("<menuItem title=\"APP_NAME\"") && !menu.contains(" APP_NAME\""), "menu items name the product");
-    assert!(menu.contains("<menuItem title=\"Quit GoCorrect Pomoc\""));
+    assert!(menu.contains("<menuItem title=\"Zakończ GoConnect Pomoc\""), "app menu in Polish");
+    assert!(!menu.contains("<menuItem title=\"Quit ") && !menu.contains("<menuItem title=\"Copy\""), "menus in Polish");
+    // Finder names the bundle IncorrectWebPomoc.app "GoConnect Pomoc" (copied into the bundle by the workflow)
+    assert!(plist.contains("<key>LSHasLocalizedDisplayName</key>\n\t<true/>"));
+    for l in ["en", "pl"] {
+        let s = repo_file(&format!("res/macos/{l}.lproj/InfoPlist.strings"));
+        assert!(s.contains("\"CFBundleDisplayName\" = \"GoConnect Pomoc\";"), "{l}.lproj");
+    }
+    let wf = repo_file(".github/workflows/incorrectweb-build.yml");
+    assert!(wf.contains("cp -R res/macos/en.lproj res/macos/pl.lproj \"$APP/Contents/Resources/\""));
 }
 
 #[test]
@@ -472,4 +482,27 @@ fn contract_for_gocorrect_is_documented_with_the_values_of_the_code() {
     for v in [crate::iw::check_now::EVENT_NAME, crate::iw::check_now::SDDL, "IWVersion", "DisplayVersion", "5 min"] {
         assert!(part.contains(&v), "INCORRECTWEB.md, Dla GoCorrect: {v}");
     }
+}
+
+#[test]
+fn windows_and_titles_show_goconnect_pomoc() {
+    // shortcuts, Start menu folder and window titles carry the product name; app_name stays the technical name
+    let win = repo_file("src/platform/windows.rs");
+    assert!(win.contains("crate::iw::names::start_menu(crate::iw::DISPLAY_NAME)"), "Start menu folder");
+    assert!(win.contains("sLinkFile = \\\"{tmp_path}\\\\{link}\\\""), "program shortcut");
+    assert!(win.contains("sLinkFile = \\\"{tmp_path}\\\\{uninstall_link}\\\""), "uninstall shortcut");
+    assert!(!win.contains("sLinkFile = \\\"{tmp_path}\\\\{app_name}.lnk\\\""), "no shortcut with the technical name");
+    assert!(win.contains("crate::iw::names::remove_shortcuts(&crate::get_app_name(), crate::iw::DISPLAY_NAME)"), "uninstall removes both");
+    assert!(win.contains("crate::iw::names::rename_legacy_shortcuts(&app_name, crate::iw::DISPLAY_NAME)"), "update renames");
+    let runner = repo_file("flutter/windows/runner/main.cpp");
+    assert!(runner.contains("GetProcAddress(hInstance, \"get_iw_display_name\")"));
+    assert!(runner.contains("window_title = display_name;"), "main window title");
+    assert!(runner.contains("hwnd = ::FindWindowW(getWindowClassName(), app_name.c_str());"), "window of an older version");
+    assert!(repo_file("src/flutter.rs").contains("pub unsafe extern \"C\" fn get_iw_display_name("));
+    let core = repo_file("src/core_main.rs");
+    assert!(core.contains("send(&crate::iw::names::window_title(crate::iw::DISPLAY_NAME)) || send(&crate::get_app_name())"));
+    let dart = repo_file("flutter/lib/common.dart");
+    let f = dart.split("String getWindowName(").nth(1).unwrap().split("\n}\n").next().unwrap();
+    assert!(f.contains("const name = kIwProductName;") && !f.contains("mainGetAppNameSync"), "window titles");
+    assert!(f.contains("\"Pulpit zdalny - $name\""));
 }

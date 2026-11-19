@@ -1,4 +1,4 @@
-# GoCorrect Pomoc
+# GoConnect Pomoc
 
 Remote help program of Incorrectus. A fork of [RustDesk](https://github.com/rustdesk/rustdesk) 1.4.9.
 

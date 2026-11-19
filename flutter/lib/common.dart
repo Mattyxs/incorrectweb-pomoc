@@ -17,6 +17,7 @@ import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:flutter_hbb/desktop/pages/iw_widgets.dart'; // IW
+import 'package:flutter_hbb/iw/iw_brand.dart'; // IW: kIwProductName (window titles)
 import 'package:flutter_hbb/utils/platform_channel.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
@@ -3098,18 +3099,20 @@ int versionCmp(String v1, String v2) {
 }
 
 String getWindowName({WindowType? overrideType}) {
-  final name = bind.mainGetAppNameSync();
+  // IW: window titles (taskbar, Mission Control) show the product name, not the technical app name
+  // (IncorrectWebPomoc stays for files, service and config); the Windows runner finds the main window by it.
+  const name = kIwProductName;
   switch (overrideType ?? kWindowType) {
     case WindowType.Main:
       return name;
     case WindowType.FileTransfer:
-      return "File Transfer - $name";
+      return "Przesyłanie plików - $name";
     case WindowType.ViewCamera:
-      return "View Camera - $name";
+      return "Kamera - $name";
     case WindowType.PortForward:
-      return "Port Forward - $name";
+      return "Przekierowanie portów - $name";
     case WindowType.RemoteDesktop:
-      return "Remote Desktop - $name";
+      return "Pulpit zdalny - $name";
     default:
       break;
   }

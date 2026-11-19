@@ -1,0 +1,3 @@
+/* IW: name shown by Finder, Launchpad and Spotlight; the bundle stays IncorrectWebPomoc.app (updates, GoCorrect) */
+"CFBundleDisplayName" = "GoConnect Pomoc";
+"CFBundleName" = "GoConnect Pomoc";

@@ -197,6 +197,19 @@ pub unsafe extern "C" fn get_rustdesk_app_name(buffer: *mut u16, length: i32) ->
     -1
 }
 
+/// IW: the name Windows shows for the main window (taskbar), see src/iw/names.rs; the runner finds a running window by
+/// it and, for versions before 1.4.9-iw.11, by `get_rustdesk_app_name`.
+#[cfg(windows)]
+#[no_mangle]
+pub unsafe extern "C" fn get_iw_display_name(buffer: *mut u16, length: i32) -> i32 {
+    let name = crate::platform::wide_string(&crate::iw::names::window_title(crate::iw::DISPLAY_NAME));
+    if length > name.len() as i32 {
+        std::ptr::copy_nonoverlapping(name.as_ptr(), buffer, name.len());
+        return 0;
+    }
+    -1
+}
+
 #[derive(Default)]
 struct SessionHandler {
     event_stream: Option<StreamSink<EventToUI>>,

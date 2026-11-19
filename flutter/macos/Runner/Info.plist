@@ -13,9 +13,14 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>GoCorrect Pomoc</string>
+	<string>GoConnect Pomoc</string>
+	<!-- IW: CFBundleDisplayName equals the file name IncorrectWebPomoc.app on purpose: only then Finder, Dock, Launchpad
+	     and Spotlight show the localized name "GoConnect Pomoc" of res/macos/*.lproj/InfoPlist.strings. The file name
+	     stays (service installation, updates and GoCorrect look for /Applications/IncorrectWebPomoc.app). -->
 	<key>CFBundleDisplayName</key>
-	<string>GoCorrect Pomoc</string>
+	<string>IncorrectWebPomoc</string>
+	<key>LSHasLocalizedDisplayName</key>
+	<true/>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -39,7 +44,7 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<!-- IW: full version 1.4.9-iw.N for GoCorrect (INCORRECTWEB.md, Dla GoCorrect) -->
 	<key>IWVersion</key>
-	<string>1.4.9-iw.10</string>
+	<string>1.4.9-iw.11</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key>
@@ -47,7 +52,7 @@
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Record the sound from microphone for the purpose of the remote desktop.</string>
+	<string>GoConnect Pomoc przekazuje dźwięk z mikrofonu podczas zdalnej pomocy.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
     <key>LSUIElement</key>

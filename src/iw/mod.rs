@@ -2,8 +2,8 @@
 //! Everything here depends only on `hbb_common`, serde, sha2, hex, url and minisign-verify, so it is tested by `iw-tests`
 //! without Flutter or native libraries. Glue with the rest of RustDesk lives in `src/iw_app.rs`.
 
-pub const IW_VERSION: &str = "1.4.9-iw.10";
-pub const DISPLAY_NAME: &str = "GoCorrect Pomoc";
+pub const IW_VERSION: &str = "1.4.9-iw.11";
+pub const DISPLAY_NAME: &str = "GoConnect Pomoc";
 /// Publisher shown in the Windows list of installed programs.
 pub const PUBLISHER: &str = "Incorrectus";
 pub const SOURCE_URL: &str = "https://github.com/Mattyxs/incorrectweb-pomoc";
@@ -21,3 +21,4 @@ pub mod update;
 pub mod update_file;
 pub mod tray;
 pub mod check_now;
+pub mod names;

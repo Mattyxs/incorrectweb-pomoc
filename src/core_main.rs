@@ -878,13 +878,17 @@ fn core_main_invoke_new_connection(mut args: std::env::Args) -> Option<Vec<Strin
     #[cfg(windows)]
     {
         use winapi::um::winuser::WM_USER;
-        let res = crate::platform::send_message_to_hnwd(
-            &crate::platform::FLUTTER_RUNNER_WIN32_WINDOW_CLASS,
-            &crate::get_app_name(),
-            (WM_USER + 2) as _, // referred from unilinks desktop pub
-            uni_links.as_str(),
-            false,
-        );
+        // IW: the window carries the product name (src/iw/names.rs); a window of a version before iw.11 the app name
+        let send = |title: &str| {
+            crate::platform::send_message_to_hnwd(
+                &crate::platform::FLUTTER_RUNNER_WIN32_WINDOW_CLASS,
+                title,
+                (WM_USER + 2) as _, // referred from unilinks desktop pub
+                uni_links.as_str(),
+                false,
+            )
+        };
+        let res = send(&crate::iw::names::window_title(crate::iw::DISPLAY_NAME)) || send(&crate::get_app_name());
         return if res { None } else { Some(Vec::new()) };
     }
     #[cfg(target_os = "macos")]

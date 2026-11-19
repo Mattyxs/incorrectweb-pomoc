@@ -92,25 +92,25 @@ mod tests {
 
     #[test]
     fn no_session_says_the_service_runs() {
-        assert_eq!(tooltip(0, false), "GoCorrect Pomoc: usługa działa");
+        assert_eq!(tooltip(0, false), "GoConnect Pomoc: usługa działa");
     }
 
     #[test]
     fn sessions_use_the_polish_plural() {
-        assert_eq!(tooltip(1, false), "GoCorrect Pomoc: 1 aktywna sesja");
-        assert_eq!(tooltip(2, false), "GoCorrect Pomoc: 2 aktywne sesje");
-        assert_eq!(tooltip(4, false), "GoCorrect Pomoc: 4 aktywne sesje");
-        assert_eq!(tooltip(5, false), "GoCorrect Pomoc: 5 aktywnych sesji");
-        assert_eq!(tooltip(12, false), "GoCorrect Pomoc: 12 aktywnych sesji");
-        assert_eq!(tooltip(14, false), "GoCorrect Pomoc: 14 aktywnych sesji");
-        assert_eq!(tooltip(22, false), "GoCorrect Pomoc: 22 aktywne sesje");
-        assert_eq!(tooltip(111, false), "GoCorrect Pomoc: 111 aktywnych sesji");
+        assert_eq!(tooltip(1, false), "GoConnect Pomoc: 1 aktywna sesja");
+        assert_eq!(tooltip(2, false), "GoConnect Pomoc: 2 aktywne sesje");
+        assert_eq!(tooltip(4, false), "GoConnect Pomoc: 4 aktywne sesje");
+        assert_eq!(tooltip(5, false), "GoConnect Pomoc: 5 aktywnych sesji");
+        assert_eq!(tooltip(12, false), "GoConnect Pomoc: 12 aktywnych sesji");
+        assert_eq!(tooltip(14, false), "GoConnect Pomoc: 14 aktywnych sesji");
+        assert_eq!(tooltip(22, false), "GoConnect Pomoc: 22 aktywne sesje");
+        assert_eq!(tooltip(111, false), "GoConnect Pomoc: 111 aktywnych sesji");
     }
 
     #[test]
     fn unattended_access_adds_a_warning_line() {
-        assert_eq!(tooltip(0, true), "GoCorrect Pomoc: usługa działa\nDostęp bez akceptacji WŁĄCZONY");
-        assert_eq!(tooltip(3, true), "GoCorrect Pomoc: 3 aktywne sesje\nDostęp bez akceptacji WŁĄCZONY");
+        assert_eq!(tooltip(0, true), "GoConnect Pomoc: usługa działa\nDostęp bez akceptacji WŁĄCZONY");
+        assert_eq!(tooltip(3, true), "GoConnect Pomoc: 3 aktywne sesje\nDostęp bez akceptacji WŁĄCZONY");
     }
 
     #[test]

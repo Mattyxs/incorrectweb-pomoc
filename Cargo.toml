@@ -4,7 +4,7 @@ version = "1.4.9"
 authors = ["rustdesk <info@rustdesk.com>"]
 edition = "2021"
 build= "build.rs"
-description = "GoCorrect Pomoc (based on RustDesk Remote Desktop)"
+description = "GoConnect Pomoc (based on RustDesk Remote Desktop)"
 default-run = "rustdesk"
 rust-version = "1.75"
 
@@ -215,8 +215,8 @@ libxdo-sys = { path = "libs/libxdo-sys-stub" }
 # IW: names shown in the file properties; the origin and license of RustDesk stay in the copyright
 LegalCopyright = "Copyright © 2026 Incorrectus. Oparty na RustDesk (AGPL-3.0), Copyright © 2026 Purslane Tech Pte. Ltd."
 CompanyName = "Incorrectus"
-ProductName = "GoCorrect Pomoc"
-FileDescription = "GoCorrect Pomoc"
+ProductName = "GoConnect Pomoc"
+FileDescription = "GoConnect Pomoc"
 OriginalFilename = "rustdesk.exe"
 
 [target.'cfg(target_os="windows")'.build-dependencies]
