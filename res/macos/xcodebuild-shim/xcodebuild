@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# IW: stands in for xcodebuild when building the `pomace` static libraries of the crate cidre without Xcode
+# (each target <t> = pomace/<t>/<t>.m, Objective-C with ARC and modules, as in pomace.xcodeproj).
+set -euo pipefail
+targets=() arch=arm64 conf=Release symroot="" min=12.3 proj=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -project) proj=$2; shift 2 ;;
+    -target) targets+=("$2"); shift 2 ;;
+    -arch) arch=$2; shift 2 ;;
+    -configuration) conf=$2; shift 2 ;;
+    -sdk) shift 2 ;;
+    SYMROOT=*) symroot=${1#SYMROOT=}; shift ;;
+    MACOSX_DEPLOYMENT_TARGET=*) min=${1#*=}; shift ;;
+    build) shift ;;
+    *) shift ;;
+  esac
+done
+[ -n "$proj" ] && [ -n "$symroot" ] || { echo "xcodebuild shim: -project and SYMROOT needed" >&2; exit 1; }
+src=$(dirname "$proj")
+out="$symroot/$conf"; mkdir -p "$out"
+opt=-Os; [ "$conf" = Debug ] && opt=-O0
+for t in "${targets[@]}"; do
+  echo "xcodebuild shim: $t ($arch, macOS $min)"
+  clang -x objective-c -fobjc-arc -fmodules -fobjc-weak $opt -arch "$arch" -mmacosx-version-min="$min" \
+    -I"$src/$t" -c "$src/$t/$t.m" -o "$out/$t.o"
+  libtool -static -o "$out/lib$t.a" "$out/$t.o"
+done
